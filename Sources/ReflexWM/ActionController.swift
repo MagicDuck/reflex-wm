@@ -46,6 +46,7 @@ final class ActionController {
     try launch(command, conditions: shortcut.effectiveMatches)
   }
 
+  // TODO (sbadragan): this is interesting, it uses zsh to launch
   private func launch(_ command: String, conditions: [MatchCondition]) throws {
     let process = Process()
     process.executableURL = URL(

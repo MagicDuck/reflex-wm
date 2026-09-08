@@ -93,6 +93,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private func configureStatusItem() {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     statusItem.button?.image = NSImage(
+      // TODO (sbadragan): do we want a fany app icon?
       systemSymbolName: "rectangle.3.group",
       accessibilityDescription: "reflex-wm"
     )

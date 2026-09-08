@@ -71,9 +71,11 @@ final class FocusTracker {
   }
 
   func captureFocusedWindow() {
+    // this is necessary if accessibiliy permissions are missing
     for application in NSWorkspace.shared.runningApplications {
       observe(application)
     }
+
     guard let window = AXSupport.focusedWindow() else { return }
     record(window)
   }

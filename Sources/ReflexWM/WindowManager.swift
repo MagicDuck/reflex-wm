@@ -35,6 +35,7 @@ final class WindowManager {
     focusTracker.captureFocusedWindow()
     if let focused = AXSupport.focusedWindow(), AXSupport.sameWindow(focused, target) {
       guard let previous = focusTracker.previous(excluding: target) else {
+        // TODO (sbadragan): just do nothing if there is nothing previous to activate?
         throw RuntimeError("there is no previous window to activate")
       }
       try focus(previous)
