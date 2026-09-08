@@ -78,3 +78,11 @@ cp -R build/reflex-wm.app /Applications/
 4. To start it at login, add `reflex-wm.app` under **System Settings → General → Login Items**.
 
 The menu-bar item shows the current configuration status and provides commands to reload or open the configuration and quit the app.
+
+## Application icon
+
+The generated master is stored at `Resources/AppIcon-master.png`, with standard sizes under `Resources/AppIcon.iconset`. To regenerate the bundled ICNS resource after changing those files, run:
+
+```sh
+swift scripts/make-icns.swift Resources/AppIcon.iconset Resources/reflex-wm.icns
+```

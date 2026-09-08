@@ -17,6 +17,7 @@ rm -rf "$app_path"
 mkdir -p "$executable_path" "$resources_path"
 cp "$project_root/.build/release/reflex-wm" "$executable_path/reflex-wm"
 cp "$project_root/Resources/Info.plist" "$contents_path/Info.plist"
+cp "$project_root/Resources/reflex-wm.icns" "$resources_path/reflex-wm.icns"
 
 codesign --force --deep --sign "${CODE_SIGN_IDENTITY:--}" "$app_path"
 plutil -lint "$contents_path/Info.plist"

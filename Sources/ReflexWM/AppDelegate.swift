@@ -92,11 +92,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   private func configureStatusItem() {
     let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-    statusItem.button?.image = NSImage(
-      // TODO (sbadragan): do we want a fany app icon?
-      systemSymbolName: "rectangle.3.group",
-      accessibilityDescription: "reflex-wm"
-    )
+    statusItem.button?.image = menuBarIcon()
+    statusItem.button?.imageScaling = .scaleProportionallyDown
     let menu = NSMenu()
     let status = NSMenuItem(title: "Starting…", action: nil, keyEquivalent: "")
     status.isEnabled = false
@@ -118,6 +115,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     statusItem.menu = menu
     self.statusItem = statusItem
     statusMenuItem = status
+  }
+
+  private func menuBarIcon() -> NSImage? {
+    if let iconURL = Bundle.main.url(forResource: "reflex-wm", withExtension: "icns"),
+      let icon = NSImage(contentsOf: iconURL)
+    {
+      icon.size = NSSize(width: 18, height: 18)
+      icon.isTemplate = false
+      icon.accessibilityDescription = "reflex-wm"
+      return icon
+    }
+    return NSImage(
+      systemSymbolName: "rectangle.3.group",
+      accessibilityDescription: "reflex-wm"
+    )
   }
 
   private func requestAccessibilityPermission() {
