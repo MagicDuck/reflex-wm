@@ -2,10 +2,12 @@ import AppKit
 import ApplicationServices
 
 @MainActor
-final class FocusTracker {
+final class FocusTracker: NSObject {
   private var history: [ManagedWindow] = []
   private var observers: [pid_t: AXObserver] = [:]
+  private var failedObserverPIDs = Set<pid_t>()
   private var workspaceTokens: [NSObjectProtocol] = []
+  private var permissionRetryTimer: Timer?
 
   func start() {
     let center = NSWorkspace.shared.notificationCenter
@@ -34,6 +36,7 @@ final class FocusTracker {
         else { return }
         Task { @MainActor in
           self?.observers.removeValue(forKey: application.processIdentifier)
+          self?.failedObserverPIDs.remove(application.processIdentifier)
           self?.history.removeAll {
             $0.application.processIdentifier == application.processIdentifier
           }
@@ -53,6 +56,15 @@ final class FocusTracker {
     for application in NSWorkspace.shared.runningApplications {
       observe(application)
     }
+    if !AXIsProcessTrusted(), !failedObserverPIDs.isEmpty {
+      permissionRetryTimer = Timer.scheduledTimer(
+        timeInterval: 1,
+        target: self,
+        selector: #selector(retryObserversAfterPermissionGrant),
+        userInfo: nil,
+        repeats: true
+      )
+    }
     captureFocusedWindow()
   }
 
@@ -60,6 +72,8 @@ final class FocusTracker {
     let center = NSWorkspace.shared.notificationCenter
     workspaceTokens.forEach(center.removeObserver)
     workspaceTokens.removeAll()
+    permissionRetryTimer?.invalidate()
+    permissionRetryTimer = nil
     for observer in observers.values {
       CFRunLoopRemoveSource(
         CFRunLoopGetMain(),
@@ -68,14 +82,10 @@ final class FocusTracker {
       )
     }
     observers.removeAll()
+    failedObserverPIDs.removeAll()
   }
 
   func captureFocusedWindow() {
-    // this is necessary if accessibiliy permissions are missing
-    for application in NSWorkspace.shared.runningApplications {
-      observe(application)
-    }
-
     guard let window = AXSupport.focusedWindow() else { return }
     record(window)
   }
@@ -83,14 +93,14 @@ final class FocusTracker {
   func record(_ window: ManagedWindow) {
     history.removeAll { AXSupport.sameWindow($0, window) }
     history.insert(window, at: 0)
-    history.removeAll { !AXSupport.isValid($0) }
     if history.count > 100 {
       history.removeLast(history.count - 100)
     }
   }
 
   func previous(excluding window: ManagedWindow) -> ManagedWindow? {
-    history.first { !AXSupport.sameWindow($0, window) && AXSupport.isValid($0) }
+    history.removeAll { !AXSupport.isValid($0) }
+    return history.first { !AXSupport.sameWindow($0, window) }
   }
 
   func mostRecent(in candidates: [ManagedWindow]) -> ManagedWindow? {
@@ -110,7 +120,10 @@ final class FocusTracker {
     var observer: AXObserver?
     guard AXObserverCreate(pid, focusChangedCallback, &observer) == .success,
       let observer
-    else { return }
+    else {
+      failedObserverPIDs.insert(pid)
+      return
+    }
     let appElement = AXUIElementCreateApplication(pid)
     let result = AXObserverAddNotification(
       observer,
@@ -118,13 +131,31 @@ final class FocusTracker {
       kAXFocusedWindowChangedNotification as CFString,
       Unmanaged.passUnretained(self).toOpaque()
     )
-    guard result == .success || result == .notificationAlreadyRegistered else { return }
+    guard result == .success || result == .notificationAlreadyRegistered else {
+      failedObserverPIDs.insert(pid)
+      return
+    }
     CFRunLoopAddSource(
       CFRunLoopGetMain(),
       AXObserverGetRunLoopSource(observer),
       .commonModes
     )
     observers[pid] = observer
+    failedObserverPIDs.remove(pid)
+  }
+
+  @objc private func retryObserversAfterPermissionGrant() {
+    guard AXIsProcessTrusted() else { return }
+    permissionRetryTimer?.invalidate()
+    permissionRetryTimer = nil
+
+    let pendingPIDs = failedObserverPIDs
+    failedObserverPIDs.removeAll()
+    for application in NSWorkspace.shared.runningApplications
+    where pendingPIDs.contains(application.processIdentifier) {
+      observe(application)
+    }
+    captureFocusedWindow()
   }
 }
 
