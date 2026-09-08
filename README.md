@@ -61,6 +61,15 @@ swift test
 
 The bundle is written to `build/reflex-wm.app`. Set `CODE_SIGN_IDENTITY` when you want to use a Developer ID; otherwise the script uses ad-hoc signing.
 
+example:
+```sh
+# assumming "reflex-wm dev" is a certificate in your login keychain
+CODE_SIGN_IDENTITY="reflex-wm dev" \              
+    ./scripts/build-app.sh
+
+cp -R build/reflex-wm.app /Applications/
+```
+
 ## Install
 
 1. Build the app.
