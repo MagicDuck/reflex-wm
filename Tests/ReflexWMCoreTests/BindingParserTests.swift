@@ -69,12 +69,47 @@ final class BindingParserTests: XCTestCase {
     }
   }
 
+  func testBuiltinAliases() throws {
+    guard case .binding(let hyper) = try BindingParser.parse("hyper + j") else {
+      return XCTFail("expected binding")
+    }
+    XCTAssertEqual(hyper.normalized, "cmd+ctrl+shift+opt+j")
+    XCTAssertEqual(hyper.modifiers, UInt32(cmdKey | controlKey | shiftKey | optionKey))
+
+    guard case .binding(let aliases) = try BindingParser.parse("super + alt + j") else {
+      return XCTFail("expected binding")
+    }
+    XCTAssertEqual(aliases.normalized, "cmd+opt+j")
+  }
+
+  func testConfiguredAndNestedAliases() throws {
+    let aliases = [
+      "meh": "ctrl + shift + alt",
+      "window": "meh + super",
+    ]
+    guard case .binding(let binding) = try BindingParser.parse("WINDOW + J", aliases: aliases)
+    else {
+      return XCTFail("expected binding")
+    }
+    XCTAssertEqual(binding.normalized, "cmd+ctrl+shift+opt+j")
+  }
+
+  func testRejectsInvalidAliasDefinitions() {
+    XCTAssertThrowsError(
+      try BindingParser.validateAliases(["first": "second", "second": "first"])
+    )
+    XCTAssertThrowsError(try BindingParser.validateAliases(["hyper": "cmd"]))
+    XCTAssertThrowsError(try BindingParser.validateAliases(["cmd": "ctrl"]))
+    XCTAssertThrowsError(try BindingParser.validateAliases(["meh": "ctrl+ctrl"]))
+    XCTAssertThrowsError(try BindingParser.validateAliases(["meh": "mystery"]))
+  }
+
   func testEmptyBindingIsDisabled() throws {
     XCTAssertEqual(try BindingParser.parse("  \n"), .disabled)
   }
 
   func testRejectsInvalidBindings() {
-    for value in ["cmd+cmd+d", "cmd+ctrl", "cmd+d+e", "cmd++d", "hyper+d", "d+cmd"] {
+    for value in ["cmd+cmd+d", "cmd+ctrl", "cmd+d+e", "cmd++d", "d+cmd"] {
       XCTAssertThrowsError(try BindingParser.parse(value), value)
     }
   }

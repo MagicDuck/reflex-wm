@@ -3,18 +3,22 @@ import TOML
 
 public struct Configuration: Decodable, Equatable, Sendable {
   public let shortcuts: [Shortcut]
+  public let aliases: [String: String]
 
   enum CodingKeys: String, CodingKey {
     case shortcuts = "shortcut"
+    case aliases
   }
 
-  public init(shortcuts: [Shortcut]) {
+  public init(shortcuts: [Shortcut], aliases: [String: String] = [:]) {
     self.shortcuts = shortcuts
+    self.aliases = aliases
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     shortcuts = try container.decodeIfPresent([Shortcut].self, forKey: .shortcuts) ?? []
+    aliases = try container.decodeIfPresent([String: String].self, forKey: .aliases) ?? [:]
   }
 }
 

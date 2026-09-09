@@ -14,8 +14,11 @@
 Create `~/.config/reflex-wm.toml`:
 
 ```toml
+[aliases]
+meh = "ctrl+shift+opt"
+
 [[shortcut]]
-bind = "cmd + ctrl + e"
+bind = "meh + e"
 action = "toggle-app"
 launch_cmd = "kitty"
 match = [
@@ -55,6 +58,8 @@ action = "toggle-vertical-split"
 ```
 
 Bindings are case-insensitive and consist of an optional combination of `cmd`, `ctrl`, `shift`, and `opt`, followed by a key. Supported keys are letters, digits, unshifted ANSI punctuation (except `+`, which separates bind tokens), F1–F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr. Punctuation can be written literally (for example, `cmd + ;`, `cmd + .`, or `cmd + /`) or with a readable name such as `semicolon`, `dot`, or `forward slash`. An empty bind disables that shortcut definition.
+
+The optional `[aliases]` table defines case-insensitive bind fragments. Aliases can reference other aliases. `alt = "opt"`, `super = "cmd"`, and `hyper = "cmd+ctrl+opt+shift"` are built in and cannot be redefined. For example, `bind = "meh+j"` above expands to `ctrl+shift+opt+j`.
 
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
 

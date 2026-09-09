@@ -6,8 +6,11 @@ final class ConfigurationTests: XCTestCase {
   func testDecodesDocumentedConfiguration() throws {
     let configuration = try ConfigurationLoader.decode(
       """
+      [aliases]
+      meh = "ctrl+shift+opt"
+
       [[shortcut]]
-      bind = "cmd + ctrl + e"
+      bind = "meh + e"
       action = "toggle-app"
       launch_cmd = "kitty"
       match = [
@@ -35,15 +38,31 @@ final class ConfigurationTests: XCTestCase {
       """
     )
     XCTAssertEqual(configuration.shortcuts.count, 5)
+    XCTAssertEqual(configuration.aliases, ["meh": "ctrl+shift+opt"])
     XCTAssertEqual(configuration.shortcuts[0].match?.count, 2)
     XCTAssertEqual(configuration.shortcuts[1].launchApplication, "Safari")
     XCTAssertEqual(configuration.shortcuts[2].action, .notifyWindowInfo)
     XCTAssertEqual(configuration.shortcuts[3].action, .focusNextAppWindow)
     XCTAssertEqual(configuration.shortcuts[4].action, .toggleVerticalSplit)
+
+    let validated = try ConfigurationValidator.validate(configuration)
+    XCTAssertEqual(validated[0].binding?.normalized, "ctrl+shift+opt+e")
   }
 
   func testEmptyDocumentHasNoShortcuts() throws {
-    XCTAssertEqual(try ConfigurationLoader.decode("").shortcuts, [])
+    let configuration = try ConfigurationLoader.decode("")
+    XCTAssertEqual(configuration.shortcuts, [])
+    XCTAssertEqual(configuration.aliases, [:])
+  }
+
+  func testInvalidAliasIsRejectedEvenWhenUnused() throws {
+    let configuration = try ConfigurationLoader.decode(
+      """
+      [aliases]
+      broken = "unknown"
+      """
+    )
+    XCTAssertThrowsError(try ConfigurationValidator.validate(configuration))
   }
 
   func testValidationFiltersEmptyMatchesAndDisablesEmptyBind() throws {

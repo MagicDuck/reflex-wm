@@ -24,11 +24,12 @@ public struct ValidationError: LocalizedError, Equatable, Sendable {
 
 public enum ConfigurationValidator {
   public static func validate(_ configuration: Configuration) throws -> [ValidatedShortcut] {
+    try BindingParser.validateAliases(configuration.aliases)
     var seenBindings = Set<HotKeyBinding>()
     var result: [ValidatedShortcut] = []
 
     for (index, shortcut) in configuration.shortcuts.enumerated() {
-      let parsed = try BindingParser.parse(shortcut.bind)
+      let parsed = try BindingParser.parse(shortcut.bind, aliases: configuration.aliases)
       let binding: HotKeyBinding?
       switch parsed {
       case .disabled:
