@@ -22,14 +22,10 @@ final class CapsLockMonitor: @unchecked Sendable {
     guard manager == nil else { return nil }
 
     let requestType = kIOHIDRequestTypeListenEvent
-    var access = IOHIDCheckAccess(requestType)
-    if access == kIOHIDAccessTypeUnknown {
-      _ = IOHIDRequestAccess(requestType)
-      access = IOHIDCheckAccess(requestType)
-    }
+    let access = IOHIDCheckAccess(requestType)
     guard access == kIOHIDAccessTypeGranted else {
       return
-        "Caps Lock remap disabled: Input Monitoring permission is required; enable reflex-wm in System Settings > Privacy & Security > Input Monitoring, then reload configuration"
+        "Caps Lock remap disabled: keyboard input access is unavailable; enable reflex-wm in System Settings > Privacy & Security > Accessibility (or Input Monitoring if shown), then reload configuration"
     }
 
     let manager = IOHIDManagerCreate(kCFAllocatorDefault, IOOptionBits(kIOHIDOptionsTypeNone))
