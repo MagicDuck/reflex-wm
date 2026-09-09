@@ -5,6 +5,12 @@ import ReflexWMCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+  private enum ReloadSource {
+    case startup
+    case menu
+    case fileSystem
+  }
+
   private let configDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent(".config", isDirectory: true)
   private lazy var configURL = configDirectoryURL.appendingPathComponent("reflex-wm.toml")
@@ -42,14 +48,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     watcher = ConfigurationWatcher(fileURL: configURL) { [weak self] in
-      self?.reloadConfiguration()
+      self?.reloadConfiguration(source: .fileSystem)
     }
     do {
       try watcher?.start()
     } catch {
       notifier.warning(error.localizedDescription)
     }
-    reloadConfiguration()
+    reloadConfiguration(source: .startup)
   }
 
   func applicationWillTerminate(_ notification: Notification) {
@@ -59,7 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
 
   @objc private func reloadConfigurationFromMenu() {
-    reloadConfiguration()
+    reloadConfiguration(source: .menu)
   }
 
   @objc private func openConfiguration() {
@@ -74,7 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     NSApplication.shared.terminate(nil)
   }
 
-  private func reloadConfiguration() {
+  private func reloadConfiguration(source: ReloadSource) {
     guard let hotKeys else { return }
     do {
       let contents = try String(contentsOf: configURL, encoding: .utf8)
@@ -82,7 +88,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let validated = try ConfigurationValidator.validate(configuration)
       try hotKeys.apply(validated)
       let activeCount = validated.filter { $0.binding != nil }.count
-      notifier.status("Loaded \(activeCount) shortcut\(activeCount == 1 ? "" : "s")")
+      let status = "Loaded \(activeCount) shortcut\(activeCount == 1 ? "" : "s")"
+      if source == .fileSystem || source == .menu {
+        notifier.info(title: "reflex-wm: Configuration Reloaded", body: status)
+      }
+      notifier.status(status)
     } catch CocoaError.fileReadNoSuchFile {
       notifier.warning("configuration file not found: \(configURL.path)")
     } catch {
