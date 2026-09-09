@@ -7,7 +7,7 @@
 - macOS 26
 - Xcode 26 or a compatible Swift 6 toolchain
 - Accessibility permission for window inspection and control
-- Notification permission for warnings and `notify-win-info`
+- Notification permission for warnings, automatic configuration reloads, and `notify-win-info`
 
 ## Configuration
 
@@ -59,6 +59,7 @@ For `toggle-app`, each object in `match` is tried in order. Within one object, e
 An empty `match` array does nothing. When no window matches, `launch_cmd` runs through the user's login shell, or `launch_app` launches the named macOS application. `launch_cmd` and `launch_app` are alternatives and cannot both appear in the same shortcut.
 
 Configuration reloads are transactional. If a changed file is invalid or a hotkey cannot be registered, the last valid bindings stay active.
+Successful filesystem-triggered reloads produce a notification; startup and manual menu reloads do not.
 
 ## Build and test
 

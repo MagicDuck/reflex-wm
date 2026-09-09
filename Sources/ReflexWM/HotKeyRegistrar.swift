@@ -16,8 +16,9 @@ final class HotKeyRegistrar {
   private var eventTapSource: CFRunLoopSource?
   private var registered: [UInt32: EventHotKeyRef] = [:]
   private var shortcuts: [UInt32: ValidatedShortcut] = [:]
-  private var shortcutsByChord: [Chord: ValidatedShortcut] = [:]
+  private var shortcutsByChord: [Chord: UInt32] = [:]
   private var consumedKeyCodes = Set<UInt32>()
+  private var lastEventTapDispatch: [UInt32: UInt64] = [:]
   private var nextID: UInt32 = 1
 
   var handler: ((ValidatedShortcut) -> Void)?
@@ -104,8 +105,20 @@ final class HotKeyRegistrar {
     unregisterAll()
   }
 
-  fileprivate func dispatch(id: UInt32) {
-    guard shortcuts[id] != nil else { return }
+  fileprivate func dispatch(id: UInt32, fromEventTap: Bool) {
+    guard let shortcut = shortcuts[id] else { return }
+    let now = DispatchTime.now().uptimeNanoseconds
+    if fromEventTap {
+      lastEventTapDispatch[id] = now
+    } else {
+      if let keyCode = shortcut.binding?.keyCode, consumedKeyCodes.contains(keyCode) {
+        return
+      }
+      if let lastDispatch = lastEventTapDispatch[id], now - lastDispatch < 1_000_000_000 {
+        return
+      }
+    }
+    handler?(shortcut)
   }
 
   fileprivate func filter(
@@ -126,14 +139,17 @@ final class HotKeyRegistrar {
       return consumedKeyCodes.remove(keyCode) != nil
     }
     guard type == .keyDown else { return false }
+    if consumedKeyCodes.contains(keyCode) {
+      return true
+    }
 
     let flags = CGEventFlags(rawValue: eventFlagsRawValue)
     let chord = Chord(keyCode: keyCode, modifiers: carbonModifiers(for: flags))
-    guard let shortcut = shortcutsByChord[chord] else { return false }
+    guard let id = shortcutsByChord[chord] else { return false }
     consumedKeyCodes.insert(keyCode)
     if !isRepeat {
       Task { @MainActor [weak self] in
-        self?.handler?(shortcut)
+        self?.dispatch(id: id, fromEventTap: true)
       }
     }
     return true
@@ -169,7 +185,7 @@ final class HotKeyRegistrar {
       }
       registered[id] = reference
       shortcuts[id] = shortcut
-      shortcutsByChord[Chord(keyCode: binding.keyCode, modifiers: binding.modifiers)] = shortcut
+      shortcutsByChord[Chord(keyCode: binding.keyCode, modifiers: binding.modifiers)] = id
     }
   }
 
@@ -181,6 +197,7 @@ final class HotKeyRegistrar {
     shortcuts.removeAll()
     shortcutsByChord.removeAll()
     consumedKeyCodes.removeAll()
+    lastEventTapDispatch.removeAll()
   }
 }
 
@@ -198,7 +215,7 @@ private let hotKeyEventCallback: EventHandlerUPP = { _, event, userData in
   )
   guard status == noErr else { return status }
   let registrar = Unmanaged<HotKeyRegistrar>.fromOpaque(userData).takeUnretainedValue()
-  Task { @MainActor in registrar.dispatch(id: hotKeyID.id) }
+  Task { @MainActor in registrar.dispatch(id: hotKeyID.id, fromEventTap: false) }
   return noErr
 }
 

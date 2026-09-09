@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       notifier.warning(error.localizedDescription)
     }
 
-    watcher = ConfigurationWatcher(directoryURL: configDirectoryURL) { [weak self] in
+    watcher = ConfigurationWatcher(fileURL: configURL) { [weak self] in
       self?.reloadConfiguration()
     }
     do {
