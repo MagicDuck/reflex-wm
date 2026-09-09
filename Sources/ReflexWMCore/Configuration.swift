@@ -54,6 +54,8 @@ public enum ShortcutAction: String, Decodable, CaseIterable, Sendable {
   case close
   case moveToNextScreen = "move-to-next-screen"
   case notifyWindowInfo = "notify-win-info"
+  case focusNextAppWindow = "focus-next-app-window"
+  case toggleVerticalSplit = "toggle-vertical-split"
 }
 
 public struct MatchCondition: Decodable, Equatable, Sendable {

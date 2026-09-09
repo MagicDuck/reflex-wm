@@ -54,6 +54,19 @@ final class WindowUtilitiesTests: XCTestCase {
     )
   }
 
+  func testVerticalHalvesFillAvailableScreenWithoutOverlap() {
+    let screen = CGRect(x: -1000, y: 25, width: 1001, height: 775)
+    let left = ScreenGeometry.verticalHalf(screen, side: .left)
+    let right = ScreenGeometry.verticalHalf(screen, side: .right)
+
+    XCTAssertEqual(left, CGRect(x: -1000, y: 25, width: 500, height: 775))
+    XCTAssertEqual(right, CGRect(x: -500, y: 25, width: 501, height: 775))
+    XCTAssertEqual(left.maxX, right.minX)
+    XCTAssertEqual(left.width + right.width, screen.width)
+    XCTAssertEqual(VerticalSplitSide.left.opposite, .right)
+    XCTAssertEqual(VerticalSplitSide.right.opposite, .left)
+  }
+
   func testWindowInfoFormattingIncludesUnavailableFields() {
     let body = WindowInfoFormatter.body(
       for: WindowMetadata(

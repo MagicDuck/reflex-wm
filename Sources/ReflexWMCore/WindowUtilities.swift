@@ -31,6 +31,38 @@ public enum ScreenGeometry {
     mapped.origin.y = min(max(mapped.minY, destination.minY), destination.maxY - mapped.height)
     return mapped
   }
+
+  public static func verticalHalf(_ screen: CGRect, side: VerticalSplitSide) -> CGRect {
+    let leftWidth = floor(screen.width / 2)
+    switch side {
+    case .left:
+      return CGRect(
+        x: screen.minX,
+        y: screen.minY,
+        width: leftWidth,
+        height: screen.height
+      )
+    case .right:
+      return CGRect(
+        x: screen.minX + leftWidth,
+        y: screen.minY,
+        width: screen.width - leftWidth,
+        height: screen.height
+      )
+    }
+  }
+}
+
+public enum VerticalSplitSide: Sendable {
+  case left
+  case right
+
+  public var opposite: Self {
+    switch self {
+    case .left: .right
+    case .right: .left
+    }
+  }
 }
 
 public enum WindowInfoFormatter {

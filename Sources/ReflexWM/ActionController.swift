@@ -25,6 +25,10 @@ final class ActionController {
         try windowManager.moveFocusedWindowToNextScreen()
       case .notifyWindowInfo:
         try notifyWindowInfo()
+      case .focusNextAppWindow:
+        try windowManager.focusNextAppWindow()
+      case .toggleVerticalSplit:
+        try windowManager.toggleVerticalSplit()
       }
     } catch {
       notifier.warning(error.localizedDescription)

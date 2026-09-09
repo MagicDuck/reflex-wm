@@ -7,6 +7,8 @@ import ReflexWMCore
 final class WindowManager {
   private let focusTracker: FocusTracker
   private var restoreFrames: [String: CGRect] = [:]
+  private var appWindowOrder: [pid_t: [String]] = [:]
+  private var nextVerticalSplitSide = VerticalSplitSide.left
 
   init(focusTracker: FocusTracker) {
     self.focusTracker = focusTracker
@@ -52,7 +54,6 @@ final class WindowManager {
       AXSupport.sameWindow(focused, target)
     {
       guard let previous = focusTracker.previous(excluding: target) else {
-        // TODO (sbadragan): just do nothing if there is nothing previous to activate?
         throw RuntimeError("there is no previous window to activate")
       }
       try focus(previous)
@@ -122,6 +123,48 @@ final class WindowManager {
     guard AXUIElementPerformAction(closeButton, kAXPressAction as CFString) == .success else {
       throw RuntimeError("could not close the focused window")
     }
+  }
+
+  func focusNextAppWindow() throws {
+    let current = try requireFocusedWindow()
+    let pid = current.application.processIdentifier
+    let windows = AXSupport.windows(for: current.application).filter { AXSupport.isValid($0) }
+    guard !windows.isEmpty else {
+      throw RuntimeError("the focused application has no accessible windows")
+    }
+
+    let availableKeys = Set(windows.map(\.key))
+    var order = appWindowOrder[pid, default: []].filter(availableKeys.contains)
+    for window in windows where !order.contains(window.key) {
+      order.append(window.key)
+    }
+    appWindowOrder[pid] = order
+
+    let targetKey: String
+    if let currentIndex = order.firstIndex(of: current.key) {
+      targetKey = order[(currentIndex + 1) % order.count]
+    } else {
+      targetKey = order[0]
+    }
+    guard let target = windows.first(where: { $0.key == targetKey }) else {
+      throw RuntimeError("could not find the next application window")
+    }
+    try focus(target)
+  }
+
+  func toggleVerticalSplit() throws {
+    let window = try requireFocusedWindow()
+    guard let frame = AXSupport.frame(of: window.element), let screen = screen(containing: frame)
+    else {
+      throw RuntimeError("could not determine the focused window's screen")
+    }
+    let side = nextVerticalSplitSide
+    try AXSupport.setFrame(
+      ScreenGeometry.verticalHalf(screen.visibleFrame, side: side),
+      of: window.element
+    )
+    restoreFrames.removeValue(forKey: window.key)
+    nextVerticalSplitSide = side.opposite
   }
 
   func moveFocusedWindowToNextScreen() throws {

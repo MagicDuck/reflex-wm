@@ -24,12 +24,22 @@ final class ConfigurationTests: XCTestCase {
       [[shortcut]]
       bind = "cmd + ctrl + i"
       action = "notify-win-info"
+
+      [[shortcut]]
+      bind = "cmd + ctrl + j"
+      action = "focus-next-app-window"
+
+      [[shortcut]]
+      bind = "cmd + ctrl + v"
+      action = "toggle-vertical-split"
       """
     )
-    XCTAssertEqual(configuration.shortcuts.count, 3)
+    XCTAssertEqual(configuration.shortcuts.count, 5)
     XCTAssertEqual(configuration.shortcuts[0].match?.count, 2)
     XCTAssertEqual(configuration.shortcuts[1].launchApplication, "Safari")
     XCTAssertEqual(configuration.shortcuts[2].action, .notifyWindowInfo)
+    XCTAssertEqual(configuration.shortcuts[3].action, .focusNextAppWindow)
+    XCTAssertEqual(configuration.shortcuts[4].action, .toggleVerticalSplit)
   }
 
   func testEmptyDocumentHasNoShortcuts() throws {

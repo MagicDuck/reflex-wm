@@ -44,11 +44,21 @@ action = "move-to-next-screen"
 [[shortcut]]
 bind = "cmd + ctrl + i"
 action = "notify-win-info"
+
+[[shortcut]]
+bind = "cmd + ctrl + j"
+action = "focus-next-app-window"
+
+[[shortcut]]
+bind = "cmd + ctrl + v"
+action = "toggle-vertical-split"
 ```
 
 Bindings are case-insensitive and consist of an optional combination of `cmd`, `ctrl`, `shift`, and `opt`, followed by a key. Supported keys are letters, digits, unshifted ANSI punctuation (except `+`, which separates bind tokens), F1–F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr. Punctuation can be written literally (for example, `cmd + ;`, `cmd + .`, or `cmd + /`) or with a readable name such as `semicolon`, `dot`, or `forward slash`. An empty bind disables that shortcut definition.
 
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
+
+`focus-next-app-window` cycles through the accessible windows of the currently focused application. `toggle-vertical-split` alternates successful invocations between the left and right halves of the current screen's available area.
 
 For `toggle-app`, each object in `match` is tried in order. Within one object, every specified property must match the same window:
 

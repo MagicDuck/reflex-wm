@@ -39,7 +39,7 @@ bind = "PrintScr"
 action = "move_to_next_screen"
 ```
 
-- Supported actions are `toggle-app`, `toggle_maximize`, `close`, `move_to_next_screen`, and `notify-win-info`.
+- Supported actions are `toggle-app`, `toggle_maximize`, `close`, `move_to_next_screen`, `notify-win-info`, `focus-next-app-window`, and `toggle-vertical-split`.
 - Parse `bind` by splitting on `+`, trimming whitespace, and matching tokens case-insensitively.
 - A non-empty bind must contain exactly one supported key and zero or more unique modifiers from `cmd`, `ctrl`, `shift`, and `opt`. Reject duplicate modifiers, unknown tokens, modifier-only bindings, or multiple keys.
 - Support letters, digits, unshifted ANSI punctuation except `+`, F1-F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr.
