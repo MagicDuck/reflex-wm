@@ -68,6 +68,7 @@ Each match condition is an inline table containing any combination of:
 - Build an AppKit `NSStatusItem` agent with `LSUIElement=true`, bundle identifier `com.reflexwm.app`, and menu items for accessibility/config status, Reload Configuration, Open Configuration, and Quit.
 - Request Accessibility and notification permissions at startup. Mirror warnings and window information through unified logging and menu status when notifications are unavailable.
 - Register normalized non-empty bindings through Carbon `RegisterEventHotKey`.
+- Reserve hotkeys exclusively and use an active session event tap to consume the complete key-down/repeat/key-up sequence for exact configured chords, preventing foreground applications from interpreting partial shortcuts.
 - Watch the configuration directory to detect direct writes, atomic replacements, deletion, and recreation. Debounce changes and retain the complete previous configuration if parsing, validation, or hotkey registration fails.
 - Track application activation and focused-window changes using `NSWorkspace` and accessibility observers. Record a recency-ordered history of valid windows, excluding reflex-wm itself.
 - For `toggle-app`:

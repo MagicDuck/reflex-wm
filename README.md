@@ -48,6 +48,8 @@ action = "notify-win-info"
 
 Bindings are case-insensitive and consist of an optional combination of `cmd`, `ctrl`, `shift`, and `opt`, followed by a key. Supported keys are letters, digits, F1–F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr. An empty bind disables that shortcut definition.
 
+When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
+
 For `toggle-app`, each object in `match` is tried in order. Within one object, every specified property must match the same window:
 
 - `app_id`: exact application bundle identifier
