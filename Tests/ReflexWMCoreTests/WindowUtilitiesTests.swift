@@ -44,6 +44,16 @@ final class WindowUtilitiesTests: XCTestCase {
     )
   }
 
+  func testFullScreenFrameFillsLargerDestinationScreen() {
+    let source = CGRect(x: 0, y: 25, width: 1440, height: 875)
+    let destination = CGRect(x: 1440, y: 0, width: 2560, height: 1415)
+
+    XCTAssertEqual(
+      ScreenGeometry.map(source, from: source, to: destination),
+      destination
+    )
+  }
+
   func testWindowInfoFormattingIncludesUnavailableFields() {
     let body = WindowInfoFormatter.body(
       for: WindowMetadata(

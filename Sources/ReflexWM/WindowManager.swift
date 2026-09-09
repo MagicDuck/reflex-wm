@@ -144,6 +144,14 @@ final class WindowManager {
       to: screens[(index + 1) % screens.count].visibleFrame
     )
     try AXSupport.setFrame(mapped, of: window.element)
+
+    // Some applications constrain the size against the old screen until AppKit has
+    // processed the position change. Reapply on the next main-loop turn, once the
+    // window belongs to the destination screen.
+    Task { @MainActor [element = window.element] in
+      await Task.yield()
+      try? AXSupport.setFrame(mapped, of: element)
+    }
   }
 
   func focusedWindowMetadata() throws -> WindowMetadata {
