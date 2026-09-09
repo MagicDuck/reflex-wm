@@ -13,6 +13,16 @@ public struct HotKeyBinding: Hashable, Sendable {
   }
 }
 
+public struct ModifierBinding: Hashable, Sendable {
+  public let modifiers: UInt32
+  public let normalized: String
+
+  public init(modifiers: UInt32, normalized: String) {
+    self.modifiers = modifiers
+    self.normalized = normalized
+  }
+}
+
 public enum BindingParseResult: Equatable, Sendable {
   case disabled
   case binding(HotKeyBinding)
@@ -153,6 +163,44 @@ public enum BindingParser {
         normalized: normalizedTokens.joined(separator: "+")
       )
     )
+  }
+
+  public static func parseModifiers(
+    _ value: String,
+    aliases: [String: String] = [:]
+  ) throws -> ModifierBinding {
+    let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+      throw ValidationError("modifier expression must not be empty")
+    }
+
+    let rawTokens = trimmed.split(separator: "+", omittingEmptySubsequences: false).map {
+      $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+    guard !rawTokens.contains(where: \.isEmpty) else {
+      throw ValidationError("modifier expression contains an empty token: \(value)")
+    }
+
+    let aliases = try resolvedAliases(aliases)
+    let tokens = rawTokens.flatMap { aliases[$0] ?? [$0] }
+    var seenModifiers = Set<String>()
+    var modifierBits: UInt32 = 0
+
+    for token in tokens {
+      guard let modifier = modifierCodes[token] else {
+        throw ValidationError("modifier expression contains non-modifier '\(token)': \(value)")
+      }
+      guard seenModifiers.insert(token).inserted else {
+        throw ValidationError(
+          "modifier expression contains duplicate modifier '\(token)': \(value)"
+        )
+      }
+      modifierBits |= modifier
+    }
+
+    let modifierOrder = ["cmd", "ctrl", "shift", "opt"]
+    let normalized = modifierOrder.filter(seenModifiers.contains).joined(separator: "+")
+    return ModifierBinding(modifiers: modifierBits, normalized: normalized)
   }
 
   private static func resolvedAliases(

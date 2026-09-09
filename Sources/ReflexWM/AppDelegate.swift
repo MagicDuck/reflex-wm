@@ -86,13 +86,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let contents = try String(contentsOf: configURL, encoding: .utf8)
       let configuration = try ConfigurationLoader.decode(contents)
       let validated = try ConfigurationValidator.validate(configuration)
-      try hotKeys.apply(validated)
-      let activeCount = validated.filter { $0.binding != nil }.count
+      let remapWarning = try hotKeys.apply(
+        validated.shortcuts,
+        capsLockModifiers: validated.capsLockRemap?.modifiers
+      )
+      let activeCount = validated.shortcuts.filter { $0.binding != nil }.count
       let status = "Loaded \(activeCount) shortcut\(activeCount == 1 ? "" : "s")"
       if source == .fileSystem || source == .menu {
         notifier.info(title: "reflex-wm: Configuration Reloaded", body: status)
       }
       notifier.status(status)
+      if let remapWarning {
+        notifier.warning(remapWarning)
+      }
     } catch CocoaError.fileReadNoSuchFile {
       notifier.warning("configuration file not found: \(configURL.path)")
     } catch {

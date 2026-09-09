@@ -113,4 +113,19 @@ final class BindingParserTests: XCTestCase {
       XCTAssertThrowsError(try BindingParser.parse(value), value)
     }
   }
+
+  func testParsesModifierExpressionsWithAliases() throws {
+    let modifiers = try BindingParser.parseModifiers(
+      "meh + super",
+      aliases: ["meh": "ctrl+shift+alt"]
+    )
+    XCTAssertEqual(modifiers.normalized, "cmd+ctrl+shift+opt")
+    XCTAssertEqual(modifiers.modifiers, UInt32(cmdKey | controlKey | shiftKey | optionKey))
+  }
+
+  func testRejectsInvalidModifierExpressions() {
+    for value in ["", "hyper+e", "cmd+cmd", "cmd++ctrl"] {
+      XCTAssertThrowsError(try BindingParser.parseModifiers(value), value)
+    }
+  }
 }
