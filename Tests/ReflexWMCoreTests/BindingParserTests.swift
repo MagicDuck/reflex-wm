@@ -28,6 +28,47 @@ final class BindingParserTests: XCTestCase {
     XCTAssertEqual(binding.keyCode, UInt32(kVK_PageUp))
   }
 
+  func testUnshiftedPunctuationKeys() throws {
+    let expected: [(String, UInt32)] = [
+      ("`", UInt32(kVK_ANSI_Grave)),
+      ("-", UInt32(kVK_ANSI_Minus)),
+      ("=", UInt32(kVK_ANSI_Equal)),
+      ("[", UInt32(kVK_ANSI_LeftBracket)),
+      ("]", UInt32(kVK_ANSI_RightBracket)),
+      ("\\", UInt32(kVK_ANSI_Backslash)),
+      (";", UInt32(kVK_ANSI_Semicolon)),
+      ("'", UInt32(kVK_ANSI_Quote)),
+      (",", UInt32(kVK_ANSI_Comma)),
+      (".", UInt32(kVK_ANSI_Period)),
+      ("/", UInt32(kVK_ANSI_Slash)),
+    ]
+
+    for (key, keyCode) in expected {
+      guard case .binding(let binding) = try BindingParser.parse("cmd + \(key)") else {
+        return XCTFail("expected binding for \(key)")
+      }
+      XCTAssertEqual(binding.keyCode, keyCode, key)
+      XCTAssertEqual(binding.normalized, "cmd+\(key)", key)
+    }
+  }
+
+  func testPunctuationAliasesNormalizeToSymbols() throws {
+    let aliases = [
+      "semicolon": ";",
+      "dot": ".",
+      "period": ".",
+      "slash": "/",
+      "forward slash": "/",
+    ]
+
+    for (alias, symbol) in aliases {
+      guard case .binding(let binding) = try BindingParser.parse("ctrl + \(alias)") else {
+        return XCTFail("expected binding for \(alias)")
+      }
+      XCTAssertEqual(binding.normalized, "ctrl+\(symbol)", alias)
+    }
+  }
+
   func testEmptyBindingIsDisabled() throws {
     XCTAssertEqual(try BindingParser.parse("  \n"), .disabled)
   }

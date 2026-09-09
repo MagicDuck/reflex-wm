@@ -31,7 +31,7 @@ match = [{ app_name = "Safari" }]
 
 [[shortcut]]
 bind = "cmd + ctrl + m"
-action = "toggle_maximize"
+action = "toggle-maximize"
 
 [[shortcut]]
 bind = "cmd + ctrl + w"
@@ -39,14 +39,14 @@ action = "close"
 
 [[shortcut]]
 bind = "cmd + ctrl + n"
-action = "move_to_next_screen"
+action = "move-to-next-screen"
 
 [[shortcut]]
 bind = "cmd + ctrl + i"
 action = "notify-win-info"
 ```
 
-Bindings are case-insensitive and consist of an optional combination of `cmd`, `ctrl`, `shift`, and `opt`, followed by a key. Supported keys are letters, digits, F1–F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr. An empty bind disables that shortcut definition.
+Bindings are case-insensitive and consist of an optional combination of `cmd`, `ctrl`, `shift`, and `opt`, followed by a key. Supported keys are letters, digits, unshifted ANSI punctuation (except `+`, which separates bind tokens), F1–F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr. Punctuation can be written literally (for example, `cmd + ;`, `cmd + .`, or `cmd + /`) or with a readable name such as `semicolon`, `dot`, or `forward slash`. An empty bind disables that shortcut definition.
 
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
 
@@ -73,8 +73,7 @@ The bundle is written to `build/reflex-wm.app`. Set `CODE_SIGN_IDENTITY` when yo
 example:
 ```sh
 # assumming "reflex-wm dev" is a certificate in your login keychain
-CODE_SIGN_IDENTITY="reflex-wm dev" \              
-    ./scripts/build-app.sh
+env CODE_SIGN_IDENTITY="reflex-wm dev" ./scripts/build-app.sh
 
 cp -R build/reflex-wm.app /Applications/
 ```

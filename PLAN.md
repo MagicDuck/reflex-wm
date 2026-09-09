@@ -42,7 +42,7 @@ action = "move_to_next_screen"
 - Supported actions are `toggle-app`, `toggle_maximize`, `close`, `move_to_next_screen`, and `notify-win-info`.
 - Parse `bind` by splitting on `+`, trimming whitespace, and matching tokens case-insensitively.
 - A non-empty bind must contain exactly one supported key and zero or more unique modifiers from `cmd`, `ctrl`, `shift`, and `opt`. Reject duplicate modifiers, unknown tokens, modifier-only bindings, or multiple keys.
-- Support letters, digits, F1-F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr.
+- Support letters, digits, unshifted ANSI punctuation except `+`, F1-F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr.
 - Validate an empty bind normally but register no hotkey for it.
 - Reject duplicate normalized non-empty binds.
 - `toggle-app` requires a `match` array and may specify either `launch_cmd` or `launch_app`, but never both. An empty match array, or one containing only empty objects, performs no action and does not launch anything.

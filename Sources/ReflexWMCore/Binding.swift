@@ -46,6 +46,12 @@ public enum BindingParser {
       "4": UInt32(kVK_ANSI_4), "5": UInt32(kVK_ANSI_5),
       "6": UInt32(kVK_ANSI_6), "7": UInt32(kVK_ANSI_7),
       "8": UInt32(kVK_ANSI_8), "9": UInt32(kVK_ANSI_9),
+      "`": UInt32(kVK_ANSI_Grave), "-": UInt32(kVK_ANSI_Minus),
+      "=": UInt32(kVK_ANSI_Equal), "[": UInt32(kVK_ANSI_LeftBracket),
+      "]": UInt32(kVK_ANSI_RightBracket), "\\": UInt32(kVK_ANSI_Backslash),
+      ";": UInt32(kVK_ANSI_Semicolon), "'": UInt32(kVK_ANSI_Quote),
+      ",": UInt32(kVK_ANSI_Comma), ".": UInt32(kVK_ANSI_Period),
+      "/": UInt32(kVK_ANSI_Slash),
       "return": UInt32(kVK_Return), "tab": UInt32(kVK_Tab),
       "space": UInt32(kVK_Space), "escape": UInt32(kVK_Escape),
       "delete": UInt32(kVK_Delete), "home": UInt32(kVK_Home),
@@ -70,6 +76,20 @@ public enum BindingParser {
     return values
   }()
 
+  private static let keyAliases: [String: String] = [
+    "grave": "`", "backtick": "`",
+    "minus": "-", "hyphen": "-",
+    "equal": "=", "equals": "=",
+    "leftbracket": "[", "left bracket": "[", "openbracket": "[", "open bracket": "[",
+    "rightbracket": "]", "right bracket": "]", "closebracket": "]", "close bracket": "]",
+    "backslash": "\\", "back slash": "\\",
+    "semicolon": ";",
+    "quote": "'", "apostrophe": "'",
+    "comma": ",",
+    "period": ".", "dot": ".",
+    "slash": "/", "forwardslash": "/", "forward slash": "/",
+  ]
+
   public static func parse(_ value: String) throws -> BindingParseResult {
     let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmed.isEmpty {
@@ -93,14 +113,14 @@ public enum BindingParser {
           throw ValidationError("bind contains duplicate modifier '\(token)': \(value)")
         }
         modifierBits |= modifier
-      } else if let keyCode = keyCodes[token] {
+      } else if let keyCode = keyCodes[keyAliases[token] ?? token] {
         guard key == nil else {
           throw ValidationError("bind contains more than one key: \(value)")
         }
         guard index == tokens.index(before: tokens.endIndex) else {
           throw ValidationError("the key must be the last token in bind: \(value)")
         }
-        key = (token, keyCode)
+        key = (keyAliases[token] ?? token, keyCode)
       } else {
         throw ValidationError("bind contains unknown token '\(token)': \(value)")
       }

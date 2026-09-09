@@ -50,9 +50,9 @@ public struct Shortcut: Decodable, Equatable, Sendable {
 
 public enum ShortcutAction: String, Decodable, CaseIterable, Sendable {
   case toggleApp = "toggle-app"
-  case toggleMaximize = "toggle_maximize"
+  case toggleMaximize = "toggle-maximize"
   case close
-  case moveToNextScreen = "move_to_next_screen"
+  case moveToNextScreen = "move-to-next-screen"
   case notifyWindowInfo = "notify-win-info"
 }
 
