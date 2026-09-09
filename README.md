@@ -7,6 +7,7 @@
 - macOS 26
 - Xcode 26 or a compatible Swift 6 toolchain (for building)
 - Accessibility permission for window inspection and control
+- Input Monitoring permission when Caps Lock remapping is configured
 - Notification permission for warnings, automatic configuration reloads, and `notify-win-info`
 
 ## Configuration
@@ -16,6 +17,9 @@ Create `~/.config/reflex-wm.toml`:
 ```toml
 [aliases]
 meh = "ctrl + shift + opt"
+
+[remap]
+caps_lock = "hyper"
 
 [[shortcut]]
 bind = "meh + e"
@@ -61,6 +65,10 @@ Bindings are case-insensitive and consist of an optional combination of `cmd`, `
 
 The optional `[aliases]` table defines case-insensitive bind fragments. Aliases can reference other aliases. `alt = "opt"`, `super = "cmd"`, and `hyper = "cmd+ctrl+opt+shift"` are built in and cannot be redefined. For example, `bind = "meh+j"` above expands to `ctrl+shift+opt+j`.
 
+The optional `[remap]` table currently supports only `caps_lock`. Its value uses the same modifier and alias syntax as a bind, but must resolve entirely to one or more modifiers. With `caps_lock = "hyper"`, holding Caps Lock while pressing `e` triggers a `hyper+e` binding. The remap is internal to reflex-wm: an unbound `CapsLock+key` combination passes the key to the active application without Caps Lock or synthetic modifiers. Caps Lock's normal capitalization behavior is suppressed while the remap is active, and reflex-wm keeps the Caps Lock LED off on keyboards that expose a writable LED control.
+
+Caps Lock remapping requires **Input Monitoring** permission. If permission is unavailable, reflex-wm loads the remaining shortcuts, disables the remap, and reports a warning. Enable reflex-wm under **System Settings → Privacy & Security → Input Monitoring**, then reload the configuration. Secure Event Input can temporarily prevent the event filter from applying the remap.
+
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
 
 Configuration reloads are transactional. If a changed file is invalid or a hotkey cannot be registered, the last valid bindings stay active.
@@ -104,7 +112,7 @@ cp -R build/reflex-wm.app /Applications/
 
 1. Build the app.
 2. Move `build/reflex-wm.app` to `/Applications`.
-3. Open the app and grant Accessibility and notification access when prompted.
+3. Open the app and grant Accessibility and notification access when prompted. If Caps Lock remapping is configured, also grant Input Monitoring access.
 4. To start it at login, add `reflex-wm.app` under **System Settings → General → Login Items**.
 
 The menu-bar item shows the current configuration status and provides commands to reload or open the configuration and quit the app.

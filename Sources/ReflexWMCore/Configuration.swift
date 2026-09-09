@@ -4,21 +4,65 @@ import TOML
 public struct Configuration: Decodable, Equatable, Sendable {
   public let shortcuts: [Shortcut]
   public let aliases: [String: String]
+  public let remap: RemapConfiguration?
 
   enum CodingKeys: String, CodingKey {
     case shortcuts = "shortcut"
     case aliases
+    case remap
   }
 
-  public init(shortcuts: [Shortcut], aliases: [String: String] = [:]) {
+  public init(
+    shortcuts: [Shortcut],
+    aliases: [String: String] = [:],
+    remap: RemapConfiguration? = nil
+  ) {
     self.shortcuts = shortcuts
     self.aliases = aliases
+    self.remap = remap
   }
 
   public init(from decoder: Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     shortcuts = try container.decodeIfPresent([Shortcut].self, forKey: .shortcuts) ?? []
     aliases = try container.decodeIfPresent([String: String].self, forKey: .aliases) ?? [:]
+    remap = try container.decodeIfPresent(RemapConfiguration.self, forKey: .remap)
+  }
+}
+
+public struct RemapConfiguration: Decodable, Equatable, Sendable {
+  public let capsLock: String?
+
+  public init(capsLock: String? = nil) {
+    self.capsLock = capsLock
+  }
+
+  private struct DynamicCodingKey: CodingKey {
+    let stringValue: String
+    let intValue: Int? = nil
+
+    init?(stringValue: String) {
+      self.stringValue = stringValue
+    }
+
+    init?(intValue: Int) {
+      return nil
+    }
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: DynamicCodingKey.self)
+    for key in container.allKeys where key.stringValue != "caps_lock" {
+      throw DecodingError.dataCorruptedError(
+        forKey: key,
+        in: container,
+        debugDescription: "unsupported remap key '\(key.stringValue)'"
+      )
+    }
+    guard let capsLockKey = DynamicCodingKey(stringValue: "caps_lock") else {
+      preconditionFailure("caps_lock is a valid coding key")
+    }
+    capsLock = try container.decodeIfPresent(String.self, forKey: capsLockKey)
   }
 }
 

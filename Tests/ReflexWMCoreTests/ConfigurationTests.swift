@@ -9,6 +9,9 @@ final class ConfigurationTests: XCTestCase {
       [aliases]
       meh = "ctrl+shift+opt"
 
+      [remap]
+      caps_lock = "hyper"
+
       [[shortcut]]
       bind = "meh + e"
       action = "toggle-app"
@@ -39,6 +42,7 @@ final class ConfigurationTests: XCTestCase {
     )
     XCTAssertEqual(configuration.shortcuts.count, 5)
     XCTAssertEqual(configuration.aliases, ["meh": "ctrl+shift+opt"])
+    XCTAssertEqual(configuration.remap, RemapConfiguration(capsLock: "hyper"))
     XCTAssertEqual(configuration.shortcuts[0].match?.count, 2)
     XCTAssertEqual(configuration.shortcuts[1].launchApplication, "Safari")
     XCTAssertEqual(configuration.shortcuts[2].action, .notifyWindowInfo)
@@ -46,13 +50,15 @@ final class ConfigurationTests: XCTestCase {
     XCTAssertEqual(configuration.shortcuts[4].action, .toggleVerticalSplit)
 
     let validated = try ConfigurationValidator.validate(configuration)
-    XCTAssertEqual(validated[0].binding?.normalized, "ctrl+shift+opt+e")
+    XCTAssertEqual(validated.shortcuts[0].binding?.normalized, "ctrl+shift+opt+e")
+    XCTAssertEqual(validated.capsLockRemap?.normalized, "cmd+ctrl+shift+opt")
   }
 
   func testEmptyDocumentHasNoShortcuts() throws {
     let configuration = try ConfigurationLoader.decode("")
     XCTAssertEqual(configuration.shortcuts, [])
     XCTAssertEqual(configuration.aliases, [:])
+    XCTAssertNil(configuration.remap)
   }
 
   func testInvalidAliasIsRejectedEvenWhenUnused() throws {
@@ -73,8 +79,8 @@ final class ConfigurationTests: XCTestCase {
       match: [MatchCondition(), MatchCondition(appName: "kitty")]
     )
     let validated = try ConfigurationValidator.validate(Configuration(shortcuts: [source]))
-    XCTAssertNil(validated[0].binding)
-    XCTAssertEqual(validated[0].effectiveMatches, [MatchCondition(appName: "kitty")])
+    XCTAssertNil(validated.shortcuts[0].binding)
+    XCTAssertEqual(validated.shortcuts[0].effectiveMatches, [MatchCondition(appName: "kitty")])
   }
 
   func testToggleAppRequiresMatch() {
@@ -132,7 +138,7 @@ final class ConfigurationTests: XCTestCase {
       match: [MatchCondition(appName: "Safari")]
     )
     let validated = try ConfigurationValidator.validate(Configuration(shortcuts: [source]))
-    XCTAssertEqual(validated[0].source.launchApplication, "Safari")
+    XCTAssertEqual(validated.shortcuts[0].source.launchApplication, "Safari")
   }
 
   func testDuplicateNormalizedBindingsAreRejected() {
@@ -141,5 +147,36 @@ final class ConfigurationTests: XCTestCase {
       Shortcut(bind: "CTRL+CMD+D", action: .toggleMaximize),
     ])
     XCTAssertThrowsError(try ConfigurationValidator.validate(configuration))
+  }
+
+  func testCapsLockRemapAcceptsConfiguredAliases() throws {
+    let configuration = Configuration(
+      shortcuts: [],
+      aliases: ["meh": "ctrl+shift+opt"],
+      remap: RemapConfiguration(capsLock: "meh+super")
+    )
+    let validated = try ConfigurationValidator.validate(configuration)
+    XCTAssertEqual(validated.capsLockRemap?.normalized, "cmd+ctrl+shift+opt")
+  }
+
+  func testCapsLockRemapRejectsKeysAndEmptyValues() {
+    for value in ["hyper+e", ""] {
+      let configuration = Configuration(
+        shortcuts: [],
+        remap: RemapConfiguration(capsLock: value)
+      )
+      XCTAssertThrowsError(try ConfigurationValidator.validate(configuration), value)
+    }
+  }
+
+  func testUnknownRemapKeyIsRejected() {
+    XCTAssertThrowsError(
+      try ConfigurationLoader.decode(
+        """
+        [remap]
+        capslock = "hyper"
+        """
+      )
+    )
   }
 }

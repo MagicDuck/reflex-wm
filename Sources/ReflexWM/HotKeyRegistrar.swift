@@ -5,6 +5,12 @@ import ReflexWMCore
 
 @MainActor
 final class HotKeyRegistrar {
+  fileprivate enum FilterResult {
+    case pass
+    case passWithFlags(CGEventFlags)
+    case consume
+  }
+
   private struct Chord: Hashable {
     let keyCode: UInt32
     let modifiers: UInt32
@@ -20,6 +26,8 @@ final class HotKeyRegistrar {
   private var consumedKeyCodes = Set<UInt32>()
   private var lastEventTapDispatch: [UInt32: UInt64] = [:]
   private var nextID: UInt32 = 1
+  private let capsLockMonitor = CapsLockMonitor()
+  private var capsLockModifiers: UInt32?
 
   var handler: ((ValidatedShortcut) -> Void)?
 
@@ -40,8 +48,10 @@ final class HotKeyRegistrar {
       throw RuntimeError("could not install the global hotkey event handler (\(status))")
     }
 
-    let eventMask = (CGEventMask(1) << CGEventType.keyDown.rawValue)
+    let eventMask =
+      (CGEventMask(1) << CGEventType.keyDown.rawValue)
       | (CGEventMask(1) << CGEventType.keyUp.rawValue)
+      | (CGEventMask(1) << CGEventType.flagsChanged.rawValue)
     guard
       let eventTap = CGEvent.tapCreate(
         tap: .cgSessionEventTap,
@@ -68,6 +78,7 @@ final class HotKeyRegistrar {
   }
 
   func shutdown() {
+    disableCapsLockRemap()
     unregisterAll()
     if let eventTapSource {
       CFRunLoopRemoveSource(CFRunLoopGetMain(), eventTapSource, .commonModes)
@@ -83,7 +94,10 @@ final class HotKeyRegistrar {
     }
   }
 
-  func apply(_ candidate: [ValidatedShortcut]) throws {
+  func apply(
+    _ candidate: [ValidatedShortcut],
+    capsLockModifiers: UInt32?
+  ) throws -> String? {
     let previous = shortcuts.values.sorted { lhs, rhs in
       (lhs.binding?.normalized ?? "") < (rhs.binding?.normalized ?? "")
     }
@@ -99,9 +113,11 @@ final class HotKeyRegistrar {
       }
       throw error
     }
+    return configureCapsLockRemap(modifiers: capsLockModifiers)
   }
 
   func removeAll() {
+    disableCapsLockRemap()
     unregisterAll()
   }
 
@@ -126,33 +142,105 @@ final class HotKeyRegistrar {
     keyCode: UInt32,
     eventFlagsRawValue: UInt64,
     isRepeat: Bool
-  ) -> Bool {
+  ) -> FilterResult {
     let type = CGEventType(rawValue: eventTypeRawValue)
     if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
       if let eventTap {
         CGEvent.tapEnable(tap: eventTap, enable: true)
       }
-      return false
-    }
-
-    if type == .keyUp {
-      return consumedKeyCodes.remove(keyCode) != nil
-    }
-    guard type == .keyDown else { return false }
-    if consumedKeyCodes.contains(keyCode) {
-      return true
+      return .pass
     }
 
     let flags = CGEventFlags(rawValue: eventFlagsRawValue)
-    let chord = Chord(keyCode: keyCode, modifiers: carbonModifiers(for: flags))
-    guard let id = shortcutsByChord[chord] else { return false }
+    if type == .flagsChanged, keyCode == UInt32(kVK_CapsLock), capsLockModifiers != nil {
+      Task { @MainActor [weak self] in
+        self?.capsLockMonitor.forceLEDsOff()
+        if flags.contains(.maskAlphaShift) {
+          self?.normalizeCapsLockState()
+        }
+      }
+      return .consume
+    }
+
+    var forwardedFlags = flags
+    if capsLockModifiers != nil {
+      forwardedFlags.remove(.maskAlphaShift)
+    }
+
+    if type == .keyUp {
+      if consumedKeyCodes.remove(keyCode) != nil {
+        return .consume
+      }
+      return forwardedFlags == flags ? .pass : .passWithFlags(forwardedFlags)
+    }
+    guard type == .keyDown else {
+      return forwardedFlags == flags ? .pass : .passWithFlags(forwardedFlags)
+    }
+    if consumedKeyCodes.contains(keyCode) {
+      return .consume
+    }
+
+    var modifiers = carbonModifiers(for: forwardedFlags)
+    if capsLockMonitor.isHeld, let capsLockModifiers {
+      modifiers |= capsLockModifiers
+    }
+    let chord = Chord(keyCode: keyCode, modifiers: modifiers)
+    guard let id = shortcutsByChord[chord] else {
+      return forwardedFlags == flags ? .pass : .passWithFlags(forwardedFlags)
+    }
     consumedKeyCodes.insert(keyCode)
     if !isRepeat {
       Task { @MainActor [weak self] in
         self?.dispatch(id: id, fromEventTap: true)
       }
     }
-    return true
+    return .consume
+  }
+
+  private func configureCapsLockRemap(modifiers: UInt32?) -> String? {
+    guard let modifiers else {
+      disableCapsLockRemap()
+      return nil
+    }
+    if let warning = capsLockMonitor.start() {
+      self.capsLockModifiers = nil
+      return warning
+    }
+    capsLockModifiers = modifiers
+    capsLockMonitor.forceLEDsOff()
+    normalizeCapsLockState()
+    return nil
+  }
+
+  private func disableCapsLockRemap() {
+    let wasEnabled = capsLockModifiers != nil || capsLockMonitor.isRunning
+    capsLockModifiers = nil
+    capsLockMonitor.stop()
+    if wasEnabled {
+      normalizeCapsLockState()
+    }
+  }
+
+  private func normalizeCapsLockState() {
+    let flags = CGEventSource.flagsState(.combinedSessionState)
+    guard flags.contains(.maskAlphaShift),
+      let source = CGEventSource(stateID: .combinedSessionState),
+      let down = CGEvent(
+        keyboardEventSource: source,
+        virtualKey: CGKeyCode(kVK_CapsLock),
+        keyDown: true
+      ),
+      let up = CGEvent(
+        keyboardEventSource: source,
+        virtualKey: CGKeyCode(kVK_CapsLock),
+        keyDown: false
+      )
+    else { return }
+    down.setIntegerValueField(.eventSourceUserData, value: capsLockNormalizationMarker)
+    up.setIntegerValueField(.eventSourceUserData, value: capsLockNormalizationMarker)
+    down.post(tap: .cghidEventTap)
+    up.post(tap: .cghidEventTap)
+    capsLockMonitor.forceLEDsOff()
   }
 
   private func carbonModifiers(for flags: CGEventFlags) -> UInt32 {
@@ -222,11 +310,14 @@ private let hotKeyEventCallback: EventHandlerUPP = { _, event, userData in
 private let hotKeySuppressionCallback: CGEventTapCallBack = {
   _, type, event, userData in
   guard let userData else { return Unmanaged.passUnretained(event) }
+  if event.getIntegerValueField(.eventSourceUserData) == capsLockNormalizationMarker {
+    return Unmanaged.passUnretained(event)
+  }
   let registrar = Unmanaged<HotKeyRegistrar>.fromOpaque(userData).takeUnretainedValue()
   let keyCode = UInt32(event.getIntegerValueField(.keyboardEventKeycode))
   let eventFlagsRawValue = event.flags.rawValue
   let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-  let consumed = MainActor.assumeIsolated {
+  let result = MainActor.assumeIsolated {
     registrar.filter(
       eventTypeRawValue: type.rawValue,
       keyCode: keyCode,
@@ -234,5 +325,15 @@ private let hotKeySuppressionCallback: CGEventTapCallBack = {
       isRepeat: isRepeat
     )
   }
-  return consumed ? nil : Unmanaged.passUnretained(event)
+  switch result {
+  case .pass:
+    return Unmanaged.passUnretained(event)
+  case .passWithFlags(let flags):
+    event.flags = flags
+    return Unmanaged.passUnretained(event)
+  case .consume:
+    return nil
+  }
 }
+
+private let capsLockNormalizationMarker: Int64 = 0x5246_4C58_4341_5053

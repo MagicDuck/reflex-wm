@@ -12,6 +12,16 @@ public struct ValidatedShortcut: Equatable, Sendable {
   }
 }
 
+public struct ValidatedConfiguration: Equatable, Sendable {
+  public let shortcuts: [ValidatedShortcut]
+  public let capsLockRemap: ModifierBinding?
+
+  public init(shortcuts: [ValidatedShortcut], capsLockRemap: ModifierBinding?) {
+    self.shortcuts = shortcuts
+    self.capsLockRemap = capsLockRemap
+  }
+}
+
 public struct ValidationError: LocalizedError, Equatable, Sendable {
   public let message: String
 
@@ -23,7 +33,7 @@ public struct ValidationError: LocalizedError, Equatable, Sendable {
 }
 
 public enum ConfigurationValidator {
-  public static func validate(_ configuration: Configuration) throws -> [ValidatedShortcut] {
+  public static func validate(_ configuration: Configuration) throws -> ValidatedConfiguration {
     try BindingParser.validateAliases(configuration.aliases)
     var seenBindings = Set<HotKeyBinding>()
     var result: [ValidatedShortcut] = []
@@ -79,6 +89,9 @@ public enum ConfigurationValidator {
         )
       )
     }
-    return result
+    let capsLockRemap = try configuration.remap?.capsLock.map {
+      try BindingParser.parseModifiers($0, aliases: configuration.aliases)
+    }
+    return ValidatedConfiguration(shortcuts: result, capsLockRemap: capsLockRemap)
   }
 }
