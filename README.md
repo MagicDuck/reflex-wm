@@ -6,8 +6,7 @@
 
 - macOS 26
 - Xcode 26 or a compatible Swift 6 toolchain (for building)
-- Accessibility permission for window inspection and control
-- Input Monitoring permission when Caps Lock remapping is configured
+- Accessibility permission for window inspection, control, global shortcuts, and Caps Lock remapping
 - Notification permission for warnings, automatic configuration reloads, and `notify-win-info`
 
 ## Configuration
@@ -67,7 +66,7 @@ The optional `[aliases]` table defines case-insensitive bind fragments. Aliases 
 
 The optional `[remap]` table currently supports only `caps_lock`. Its value uses the same modifier and alias syntax as a bind, but must resolve entirely to one or more modifiers. With `caps_lock = "hyper"`, holding Caps Lock while pressing `e` triggers a `hyper+e` binding. The remap is internal to reflex-wm: an unbound `CapsLock+key` combination passes the key to the active application without Caps Lock or synthetic modifiers. Caps Lock's normal capitalization behavior is suppressed while the remap is active, and reflex-wm keeps the Caps Lock LED off on keyboards that expose a writable LED control.
 
-Caps Lock remapping requires **Input Monitoring** permission. If permission is unavailable, reflex-wm loads the remaining shortcuts, disables the remap, and reports a warning. Enable reflex-wm under **System Settings → Privacy & Security → Input Monitoring**, then reload the configuration. Secure Event Input can temporarily prevent the event filter from applying the remap.
+On current macOS versions, the keyboard-listening access needed for Caps Lock remapping is normally included with **Accessibility** permission, so a separate **Input Monitoring** grant is not usually required. If keyboard input access is unavailable, reflex-wm loads the remaining shortcuts, disables the remap, and reports a warning. Verify reflex-wm is enabled under **System Settings → Privacy & Security → Accessibility**; if macOS exposes keyboard access separately, enable it under **Input Monitoring** as well, then reload the configuration. Secure Event Input can temporarily prevent the event filter from applying the remap.
 
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
 
@@ -112,7 +111,7 @@ cp -R build/reflex-wm.app /Applications/
 
 1. Build the app.
 2. Move `build/reflex-wm.app` to `/Applications`.
-3. Open the app and grant Accessibility and notification access when prompted. If Caps Lock remapping is configured, also grant Input Monitoring access.
+3. Open the app and grant Accessibility and notification access when prompted.
 4. To start it at login, add `reflex-wm.app` under **System Settings → General → Login Items**.
 
 The menu-bar item shows the current configuration status and provides commands to reload or open the configuration and quit the app.
