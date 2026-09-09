@@ -45,6 +45,11 @@ public enum ConfigurationValidator {
         guard let conditions = shortcut.match else {
           throw ValidationError("shortcut \(index + 1): toggle-app requires match")
         }
+        guard shortcut.launchCommand == nil || shortcut.launchApplication == nil else {
+          throw ValidationError(
+            "shortcut \(index + 1): launch_cmd and launch_app are mutually exclusive"
+          )
+        }
         effectiveMatches = conditions.filter { !$0.isEmpty }
       } else {
         guard shortcut.match == nil else {
@@ -55,6 +60,11 @@ public enum ConfigurationValidator {
         guard shortcut.launchCommand == nil else {
           throw ValidationError(
             "shortcut \(index + 1): launch_cmd is only valid for toggle-app"
+          )
+        }
+        guard shortcut.launchApplication == nil else {
+          throw ValidationError(
+            "shortcut \(index + 1): launch_app is only valid for toggle-app"
           )
         }
         effectiveMatches = []

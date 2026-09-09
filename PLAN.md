@@ -21,6 +21,12 @@ match = [
 ]
 
 [[shortcut]]
+bind = "cmd + ctrl + s"
+action = "toggle-app"
+launch_app = "Safari"
+match = [{ app_name = "Safari" }]
+
+[[shortcut]]
 bind = "cmd + ctrl + m"
 action = "toggle_maximize"
 
@@ -39,8 +45,9 @@ action = "move_to_next_screen"
 - Support letters, digits, F1-F20, arrows, Return, Tab, Space, Escape, Delete, Home, End, Page Up, Page Down, and PrintScr.
 - Validate an empty bind normally but register no hotkey for it.
 - Reject duplicate normalized non-empty binds.
-- `toggle-app` requires a `match` array and may specify `launch_cmd`. An empty match array, or one containing only empty objects, performs no action and does not launch anything.
-- Reject `match` and `launch_cmd` on every action other than `toggle-app`.
+- `toggle-app` requires a `match` array and may specify either `launch_cmd` or `launch_app`, but never both. An empty match array, or one containing only empty objects, performs no action and does not launch anything.
+- `launch_cmd` runs through the user's login shell. `launch_app` launches the named macOS application, for example `launch_app = "Safari"`.
+- Reject `match`, `launch_cmd`, and `launch_app` on every action other than `toggle-app`.
 
 Each match condition is an inline table containing any combination of:
 
@@ -67,8 +74,8 @@ Each match condition is an inline table containing any combination of:
   - Evaluate non-empty match conditions in order.
   - If that exact window is currently focused, activate and raise the previous valid window.
   - Otherwise unminimize, activate, focus, and raise the selected window.
-  - If no condition matches and `launch_cmd` exists, run it asynchronously through the user's login shell with `-lc`, suppress duplicate launches briefly, and retry all conditions in their original order while waiting for a window.
-  - Report missing launch commands and command failures, but treat empty/effectively-empty match arrays as intentional no-ops.
+  - If no condition matches and `launch_cmd` exists, run it asynchronously through the user's login shell with `-lc`. If `launch_app` exists instead, launch the named application through macOS Launch Services using `/usr/bin/open -a`. Suppress duplicate launches briefly and retry all conditions in their original order while waiting for a window.
+  - Report missing launch methods and launch failures, but treat empty/effectively-empty match arrays as intentional no-ops.
 - Apply focused-window actions as follows:
   - `toggle_maximize`: save the focused standard window's frame, fill its screen's visible frame, and restore the saved frame on the next invocation.
   - `close`: invoke the focused standard window's Accessibility close action.
@@ -81,7 +88,7 @@ Each match condition is an inline table containing any combination of:
 ## Test Plan
 
 - Test bind parsing for whitespace, casing, optional modifiers, PrintScr, empty binds, duplicates, unsupported tokens, duplicate modifiers, missing keys, and multiple keys.
-- Test all five actions, required `match`, forbidden app fields on non-`toggle-app` actions, empty match arrays, empty objects, malformed conditions, and transactional reload failures.
+- Test all five actions, required `match`, mutually exclusive launch methods, forbidden app fields on non-`toggle-app` actions, empty match arrays, empty objects, malformed conditions, and transactional reload failures.
 - Test match-condition AND behavior, ordered fallback between conditions, exact bundle matching, case-insensitive app/title matching, and selection among multiple matching windows.
 - Test app toggling, previous-window restoration, minimized/destroyed windows, launching, retry matching, failed commands, and duplicate-launch suppression with protocol-backed fakes.
 - Test `notify-win-info` formatting with complete metadata, missing bundle IDs, missing names/titles, absent focused windows, denied Accessibility access, and denied notification permission.

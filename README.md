@@ -24,6 +24,12 @@ match = [
 ]
 
 [[shortcut]]
+bind = "cmd + ctrl + s"
+action = "toggle-app"
+launch_app = "Safari"
+match = [{ app_name = "Safari" }]
+
+[[shortcut]]
 bind = "cmd + ctrl + m"
 action = "toggle_maximize"
 
@@ -48,7 +54,7 @@ For `toggle-app`, each object in `match` is tried in order. Within one object, e
 - `app_name`: case-insensitive application name or executable basename
 - `win_title`: case-insensitive accessible window title
 
-An empty `match` array does nothing. When no window matches, `launch_cmd` runs through the user's login shell.
+An empty `match` array does nothing. When no window matches, `launch_cmd` runs through the user's login shell, or `launch_app` launches the named macOS application. `launch_cmd` and `launch_app` are alternatives and cannot both appear in the same shortcut.
 
 Configuration reloads are transactional. If a changed file is invalid or a hotkey cannot be registered, the last valid bindings stay active.
 

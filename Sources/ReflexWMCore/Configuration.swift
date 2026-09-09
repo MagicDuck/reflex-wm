@@ -22,12 +22,14 @@ public struct Shortcut: Decodable, Equatable, Sendable {
   public let bind: String
   public let action: ShortcutAction
   public let launchCommand: String?
+  public let launchApplication: String?
   public let match: [MatchCondition]?
 
   enum CodingKeys: String, CodingKey {
     case bind
     case action
     case launchCommand = "launch_cmd"
+    case launchApplication = "launch_app"
     case match
   }
 
@@ -35,11 +37,13 @@ public struct Shortcut: Decodable, Equatable, Sendable {
     bind: String,
     action: ShortcutAction,
     launchCommand: String? = nil,
+    launchApplication: String? = nil,
     match: [MatchCondition]? = nil
   ) {
     self.bind = bind
     self.action = action
     self.launchCommand = launchCommand
+    self.launchApplication = launchApplication
     self.match = match
   }
 }
