@@ -40,4 +40,19 @@ final class MatchConditionTests: XCTestCase {
     )
     XCTAssertFalse(MatchCondition(windowTitle: "shell").matches(missingTitle))
   }
+
+  func testApplicationPrefilterIgnoresWindowTitle() {
+    let condition = MatchCondition(
+      appID: "net.kovidgoyal.kitty",
+      appName: "KITTY-BIN",
+      windowTitle: "different window"
+    )
+    XCTAssertTrue(condition.matchesApplication(candidate))
+    XCTAssertFalse(condition.matches(candidate))
+  }
+
+  func testApplicationPrefilterRejectsWrongApplication() {
+    XCTAssertFalse(MatchCondition(appID: "wrong.bundle").matchesApplication(candidate))
+    XCTAssertFalse(MatchCondition(appName: "Safari").matchesApplication(candidate))
+  }
 }

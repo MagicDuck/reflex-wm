@@ -78,6 +78,16 @@ public struct MatchCondition: Decodable, Equatable, Sendable {
   }
 
   public func matches(_ candidate: WindowMetadata) -> Bool {
+    guard matchesApplication(candidate) else { return false }
+    if let windowTitle {
+      guard let candidateTitle = candidate.windowTitle,
+        equalIgnoringCase(candidateTitle, windowTitle)
+      else { return false }
+    }
+    return true
+  }
+
+  public func matchesApplication(_ candidate: WindowMetadata) -> Bool {
     if let appID, candidate.appID != appID {
       return false
     }
@@ -90,11 +100,6 @@ public struct MatchCondition: Decodable, Equatable, Sendable {
       if !matchesName && !matchesExecutable {
         return false
       }
-    }
-    if let windowTitle {
-      guard let candidateTitle = candidate.windowTitle,
-        equalIgnoringCase(candidateTitle, windowTitle)
-      else { return false }
     }
     return true
   }

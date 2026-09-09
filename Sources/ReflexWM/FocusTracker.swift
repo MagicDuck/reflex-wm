@@ -86,8 +86,13 @@ final class FocusTracker: NSObject {
   }
 
   func captureFocusedWindow() {
-    guard let window = AXSupport.focusedWindow() else { return }
+    _ = captureFocusedWindowForToggle()
+  }
+
+  func captureFocusedWindowForToggle() -> ManagedWindow? {
+    guard let window = AXSupport.focusedWindow() else { return nil }
     record(window)
+    return window
   }
 
   func record(_ window: ManagedWindow) {
@@ -99,8 +104,23 @@ final class FocusTracker: NSObject {
   }
 
   func previous(excluding window: ManagedWindow) -> ManagedWindow? {
-    history.removeAll { !AXSupport.isValid($0) }
-    return history.first { !AXSupport.sameWindow($0, window) }
+    var index = 0
+    while index < history.count {
+      let candidate = history[index]
+      if candidate.application.isTerminated {
+        history.remove(at: index)
+        continue
+      }
+      if AXSupport.sameWindow(candidate, window) {
+        index += 1
+        continue
+      }
+      if AXSupport.isValid(candidate) {
+        return candidate
+      }
+      history.remove(at: index)
+    }
+    return nil
   }
 
   func mostRecent(in candidates: [ManagedWindow]) -> ManagedWindow? {

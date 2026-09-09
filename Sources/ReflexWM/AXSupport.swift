@@ -48,12 +48,13 @@ enum AXSupport {
     }
   }
 
-  static func allWindows() -> [ManagedWindow] {
-    NSWorkspace.shared.runningApplications
-      .filter {
-        !$0.isTerminated && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
-      }
-      .flatMap(windows(for:))
+  static func metadata(for application: NSRunningApplication) -> WindowMetadata {
+    WindowMetadata(
+      appID: application.bundleIdentifier,
+      appName: application.localizedName,
+      executableName: application.executableURL?.lastPathComponent,
+      windowTitle: nil
+    )
   }
 
   static func focusedWindow() -> ManagedWindow? {

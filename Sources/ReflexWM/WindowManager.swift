@@ -13,27 +13,44 @@ final class WindowManager {
   }
 
   func matchedWindow(for conditions: [MatchCondition]) -> ManagedWindow? {
-    let windows = AXSupport.allWindows()
-    let indexes = MatchResolver.firstMatchingIndexes(
-      conditions: conditions,
-      candidates: windows.map(\.metadata)
-    )
-    let matches = indexes.map { windows[$0] }
-    guard !matches.isEmpty else { return nil }
-    if let recent = focusTracker.mostRecent(in: matches) {
-      return recent
+    let applications = NSWorkspace.shared.runningApplications.filter {
+      !$0.isTerminated && $0.processIdentifier != ProcessInfo.processInfo.processIdentifier
     }
-    if let focused = AXSupport.focusedWindow(),
-      let match = matches.first(where: { AXSupport.sameWindow($0, focused) })
-    {
-      return match
+    var cachedWindows: [pid_t: [ManagedWindow]] = [:]
+
+    for condition in conditions where !condition.isEmpty {
+      let candidateApplications = applications.filter {
+        condition.matchesApplication(AXSupport.metadata(for: $0))
+      }
+      let matches = candidateApplications.flatMap { application in
+        let pid = application.processIdentifier
+        let windows: [ManagedWindow]
+        if let cached = cachedWindows[pid] {
+          windows = cached
+        } else {
+          windows = AXSupport.windows(for: application)
+          cachedWindows[pid] = windows
+        }
+        return windows.filter { condition.matches($0.metadata) }
+      }
+      guard !matches.isEmpty else { continue }
+      if let recent = focusTracker.mostRecent(in: matches) {
+        return recent
+      }
+      if let focused = AXSupport.focusedWindow(),
+        let match = matches.first(where: { AXSupport.sameWindow($0, focused) })
+      {
+        return match
+      }
+      return matches[0]
     }
-    return matches[0]
+    return nil
   }
 
   func toggle(to target: ManagedWindow) throws {
-    focusTracker.captureFocusedWindow()
-    if let focused = AXSupport.focusedWindow(), AXSupport.sameWindow(focused, target) {
+    if let focused = focusTracker.captureFocusedWindowForToggle(),
+      AXSupport.sameWindow(focused, target)
+    {
       guard let previous = focusTracker.previous(excluding: target) else {
         // TODO (sbadragan): just do nothing if there is nothing previous to activate?
         throw RuntimeError("there is no previous window to activate")
