@@ -15,7 +15,7 @@ Create `~/.config/reflex-wm.toml`:
 
 ```toml
 [aliases]
-meh = "ctrl+shift+opt"
+meh = "ctrl + shift + opt"
 
 [[shortcut]]
 bind = "meh + e"
