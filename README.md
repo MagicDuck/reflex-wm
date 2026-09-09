@@ -5,7 +5,7 @@
 ## Requirements
 
 - macOS 26
-- Xcode 26 or a compatible Swift 6 toolchain
+- Xcode 26 or a compatible Swift 6 toolchain (for building)
 - Accessibility permission for window inspection and control
 - Notification permission for warnings, automatic configuration reloads, and `notify-win-info`
 
@@ -63,8 +63,18 @@ The optional `[aliases]` table defines case-insensitive bind fragments. Aliases 
 
 When a configured chord is pressed, reflex-wm consumes its key-down, repeat, and key-up events. The foreground application therefore does not receive the chord or interpret it as a shortcut with fewer modifiers.
 
-`focus-next-app-window` cycles through the accessible windows of the currently focused application. `toggle-vertical-split` alternates successful invocations between the left and right halves of the current screen's available area.
+Configuration reloads are transactional. If a changed file is invalid or a hotkey cannot be registered, the last valid bindings stay active.
 
+## Actions
+- `notify-win-info` creates a notification with current window information 
+- `close` closes the current window
+- `focus-next-app-window` cycles through the accessible windows of the currently focused application.
+- `toggle-maximize` toggles current window size between maximum available screen space and previous saved geometry
+- `toggle-vertical-split` alternate invocations resize the current window to take up left/right halves of the current screen's available area.
+- `move-to-next-screen` moves current window to next screen (left-to-right and top-to-bottom)
+- `toggle-app` toggles focus of app window or launches the app. See more in-depth explanation of options below.
+
+### toggle-app configuration
 For `toggle-app`, each object in `match` is tried in order. Within one object, every specified property must match the same window:
 
 - `app_id`: exact application bundle identifier
@@ -72,9 +82,6 @@ For `toggle-app`, each object in `match` is tried in order. Within one object, e
 - `win_title`: case-insensitive accessible window title
 
 An empty `match` array does nothing. When no window matches, `launch_cmd` runs through the user's login shell, or `launch_app` launches the named macOS application. `launch_cmd` and `launch_app` are alternatives and cannot both appear in the same shortcut.
-
-Configuration reloads are transactional. If a changed file is invalid or a hotkey cannot be registered, the last valid bindings stay active.
-Successful filesystem-triggered reloads produce a notification; startup and manual menu reloads do not.
 
 ## Build and test
 
