@@ -84,7 +84,7 @@ final class ConfigurationWatcher {
     guard descriptor >= 0 else { return }
     let source = DispatchSource.makeFileSystemObjectSource(
       fileDescriptor: descriptor,
-      eventMask: [.write, .delete, .rename, .attrib, .extend, .link, .revoke],
+      eventMask: [.write, .delete, .rename, .extend, .link, .revoke],
       queue: .main
     )
     source.setEventHandler { [weak self] in
