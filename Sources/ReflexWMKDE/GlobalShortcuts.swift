@@ -25,7 +25,8 @@ final class GlobalShortcuts: ShortcutService {
           registration.keys.map {
             .structure([.array("i", [.int32($0), .int32(0), .int32(0), .int32(0)])])
           }),
-        .uint32(2 | 4),  // SetPresent | NoAutoloading; deliberately do not steal conflicts.
+        // SetPresent | NoAutoloading; deliberately do not steal conflicts.
+        .uint32(UInt32(2) | UInt32(4)),
       ])
     return try Self.decodeKeys(reply.first)
   }
