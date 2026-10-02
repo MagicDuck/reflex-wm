@@ -1,7 +1,11 @@
-import Carbon
 import XCTest
 
 @testable import ReflexWMCore
+
+#if os(macOS)
+  import Carbon
+  import ReflexWMMacSupport
+#endif
 
 final class BindingParserTests: XCTestCase {
   func testParsesAndNormalizesBinding() throws {
@@ -10,45 +14,31 @@ final class BindingParserTests: XCTestCase {
       return XCTFail("expected binding")
     }
     XCTAssertEqual(binding.normalized, "cmd+ctrl+d")
-    XCTAssertEqual(binding.keyCode, UInt32(kVK_ANSI_D))
-    XCTAssertEqual(binding.modifiers, UInt32(cmdKey | controlKey))
+    XCTAssertEqual(binding.key, "d")
+    XCTAssertEqual(binding.modifiers, [.command, .control])
   }
 
-  func testPrintScreenMapsToF13() throws {
+  func testPrintScreenRemainsLogical() throws {
     guard case .binding(let binding) = try BindingParser.parse("PrintScr") else {
       return XCTFail("expected binding")
     }
-    XCTAssertEqual(binding.keyCode, UInt32(kVK_F13))
+    XCTAssertEqual(binding.key, "printscr")
   }
 
   func testMultiwordKeyAlias() throws {
     guard case .binding(let binding) = try BindingParser.parse("cmd + Page Up") else {
       return XCTFail("expected binding")
     }
-    XCTAssertEqual(binding.keyCode, UInt32(kVK_PageUp))
+    XCTAssertEqual(binding.key, "pageup")
   }
 
   func testUnshiftedPunctuationKeys() throws {
-    let expected: [(String, UInt32)] = [
-      ("`", UInt32(kVK_ANSI_Grave)),
-      ("-", UInt32(kVK_ANSI_Minus)),
-      ("=", UInt32(kVK_ANSI_Equal)),
-      ("[", UInt32(kVK_ANSI_LeftBracket)),
-      ("]", UInt32(kVK_ANSI_RightBracket)),
-      ("\\", UInt32(kVK_ANSI_Backslash)),
-      (";", UInt32(kVK_ANSI_Semicolon)),
-      ("'", UInt32(kVK_ANSI_Quote)),
-      (",", UInt32(kVK_ANSI_Comma)),
-      (".", UInt32(kVK_ANSI_Period)),
-      ("/", UInt32(kVK_ANSI_Slash)),
-    ]
-
-    for (key, keyCode) in expected {
+    for key in Array("`-=[]\\;'.,/").map(String.init) {
       guard case .binding(let binding) = try BindingParser.parse("cmd + \(key)") else {
-        return XCTFail("expected binding for \(key)")
+        return XCTFail("expected binding")
       }
-      XCTAssertEqual(binding.keyCode, keyCode, key)
-      XCTAssertEqual(binding.normalized, "cmd+\(key)", key)
+      XCTAssertEqual(binding.key, key)
+      XCTAssertEqual(binding.normalized, "cmd+\(key)")
     }
   }
 
@@ -74,7 +64,7 @@ final class BindingParserTests: XCTestCase {
       return XCTFail("expected binding")
     }
     XCTAssertEqual(hyper.normalized, "cmd+ctrl+shift+opt+j")
-    XCTAssertEqual(hyper.modifiers, UInt32(cmdKey | controlKey | shiftKey | optionKey))
+    XCTAssertEqual(hyper.modifiers, [.command, .control, .shift, .option])
 
     guard case .binding(let aliases) = try BindingParser.parse("super + alt + j") else {
       return XCTFail("expected binding")
@@ -120,8 +110,21 @@ final class BindingParserTests: XCTestCase {
       aliases: ["meh": "ctrl+shift+alt"]
     )
     XCTAssertEqual(modifiers.normalized, "cmd+ctrl+shift+opt")
-    XCTAssertEqual(modifiers.modifiers, UInt32(cmdKey | controlKey | shiftKey | optionKey))
+    XCTAssertEqual(modifiers.modifiers, [.command, .control, .shift, .option])
   }
+
+  #if os(macOS)
+    func testCarbonTranslationPreservesExistingCodes() throws {
+      for (key, code) in [("d", kVK_ANSI_D), ("printscr", kVK_F13), ("pageup", kVK_PageUp)] {
+        guard case .binding(let binding) = try BindingParser.parse("hyper+\(key)") else {
+          return XCTFail("expected binding")
+        }
+        XCTAssertEqual(binding.carbonKeyCode, UInt32(code))
+        XCTAssertEqual(
+          binding.modifiers.carbonModifiers, UInt32(cmdKey | controlKey | shiftKey | optionKey))
+      }
+    }
+  #endif
 
   func testRejectsInvalidModifierExpressions() {
     for value in ["", "hyper+e", "cmd+cmd", "cmd++ctrl"] {

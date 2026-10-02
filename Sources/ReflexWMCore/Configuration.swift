@@ -166,17 +166,20 @@ public struct WindowMetadata: Equatable, Sendable {
   public let appName: String?
   public let executableName: String?
   public let windowTitle: String?
+  public let desktopEntryID: String?
 
   public init(
     appID: String?,
     appName: String?,
     executableName: String?,
-    windowTitle: String?
+    windowTitle: String?,
+    desktopEntryID: String? = nil
   ) {
     self.appID = appID
     self.appName = appName
     self.executableName = executableName
     self.windowTitle = windowTitle
+    self.desktopEntryID = desktopEntryID
   }
 }
 

@@ -2,6 +2,7 @@ import Carbon
 import CoreGraphics
 import Foundation
 import ReflexWMCore
+import ReflexWMMacSupport
 
 @MainActor
 final class HotKeyRegistrar {
@@ -127,7 +128,7 @@ final class HotKeyRegistrar {
     if fromEventTap {
       lastEventTapDispatch[id] = now
     } else {
-      if let keyCode = shortcut.binding?.keyCode, consumedKeyCodes.contains(keyCode) {
+      if let keyCode = shortcut.binding?.carbonKeyCode, consumedKeyCodes.contains(keyCode) {
         return
       }
       if let lastDispatch = lastEventTapDispatch[id], now - lastDispatch < 1_000_000_000 {
@@ -259,8 +260,8 @@ final class HotKeyRegistrar {
       nextID &+= 1
       var reference: EventHotKeyRef?
       let status = RegisterEventHotKey(
-        binding.keyCode,
-        binding.modifiers,
+        binding.carbonKeyCode,
+        binding.modifiers.carbonModifiers,
         EventHotKeyID(signature: signature, id: id),
         GetApplicationEventTarget(),
         OptionBits(kEventHotKeyExclusive),
@@ -273,7 +274,7 @@ final class HotKeyRegistrar {
       }
       registered[id] = reference
       shortcuts[id] = shortcut
-      shortcutsByChord[Chord(keyCode: binding.keyCode, modifiers: binding.modifiers)] = id
+      shortcutsByChord[Chord(keyCode: binding.carbonKeyCode, modifiers: binding.modifiers.carbonModifiers)] = id
     }
   }
 

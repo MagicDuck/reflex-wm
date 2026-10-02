@@ -1,23 +1,30 @@
-import Carbon
 import Foundation
 
+public struct BindingModifiers: OptionSet, Hashable, Sendable {
+  public let rawValue: UInt32
+  public init(rawValue: UInt32) { self.rawValue = rawValue }
+  public static let command = Self(rawValue: 1)
+  public static let control = Self(rawValue: 2)
+  public static let shift = Self(rawValue: 4)
+  public static let option = Self(rawValue: 8)
+}
+
 public struct HotKeyBinding: Hashable, Sendable {
-  public let keyCode: UInt32
-  public let modifiers: UInt32
+  public let key: String
+  public let modifiers: BindingModifiers
   public let normalized: String
 
-  public init(keyCode: UInt32, modifiers: UInt32, normalized: String) {
-    self.keyCode = keyCode
+  public init(key: String, modifiers: BindingModifiers, normalized: String) {
+    self.key = key
     self.modifiers = modifiers
     self.normalized = normalized
   }
 }
 
 public struct ModifierBinding: Hashable, Sendable {
-  public let modifiers: UInt32
+  public let modifiers: BindingModifiers
   public let normalized: String
-
-  public init(modifiers: UInt32, normalized: String) {
+  public init(modifiers: BindingModifiers, normalized: String) {
     self.modifiers = modifiers
     self.normalized = normalized
   }
@@ -29,64 +36,21 @@ public enum BindingParseResult: Equatable, Sendable {
 }
 
 public enum BindingParser {
-  private static let modifierCodes: [String: UInt32] = [
-    "cmd": UInt32(cmdKey),
-    "ctrl": UInt32(controlKey),
-    "shift": UInt32(shiftKey),
-    "opt": UInt32(optionKey),
+  private static let modifierCodes: [String: BindingModifiers] = [
+    "cmd": .command, "ctrl": .control, "shift": .shift, "opt": .option,
   ]
-
-  private static let keyCodes: [String: UInt32] = {
-    var values: [String: UInt32] = [
-      "a": UInt32(kVK_ANSI_A), "b": UInt32(kVK_ANSI_B),
-      "c": UInt32(kVK_ANSI_C), "d": UInt32(kVK_ANSI_D),
-      "e": UInt32(kVK_ANSI_E), "f": UInt32(kVK_ANSI_F),
-      "g": UInt32(kVK_ANSI_G), "h": UInt32(kVK_ANSI_H),
-      "i": UInt32(kVK_ANSI_I), "j": UInt32(kVK_ANSI_J),
-      "k": UInt32(kVK_ANSI_K), "l": UInt32(kVK_ANSI_L),
-      "m": UInt32(kVK_ANSI_M), "n": UInt32(kVK_ANSI_N),
-      "o": UInt32(kVK_ANSI_O), "p": UInt32(kVK_ANSI_P),
-      "q": UInt32(kVK_ANSI_Q), "r": UInt32(kVK_ANSI_R),
-      "s": UInt32(kVK_ANSI_S), "t": UInt32(kVK_ANSI_T),
-      "u": UInt32(kVK_ANSI_U), "v": UInt32(kVK_ANSI_V),
-      "w": UInt32(kVK_ANSI_W), "x": UInt32(kVK_ANSI_X),
-      "y": UInt32(kVK_ANSI_Y), "z": UInt32(kVK_ANSI_Z),
-      "0": UInt32(kVK_ANSI_0), "1": UInt32(kVK_ANSI_1),
-      "2": UInt32(kVK_ANSI_2), "3": UInt32(kVK_ANSI_3),
-      "4": UInt32(kVK_ANSI_4), "5": UInt32(kVK_ANSI_5),
-      "6": UInt32(kVK_ANSI_6), "7": UInt32(kVK_ANSI_7),
-      "8": UInt32(kVK_ANSI_8), "9": UInt32(kVK_ANSI_9),
-      "`": UInt32(kVK_ANSI_Grave), "-": UInt32(kVK_ANSI_Minus),
-      "=": UInt32(kVK_ANSI_Equal), "[": UInt32(kVK_ANSI_LeftBracket),
-      "]": UInt32(kVK_ANSI_RightBracket), "\\": UInt32(kVK_ANSI_Backslash),
-      ";": UInt32(kVK_ANSI_Semicolon), "'": UInt32(kVK_ANSI_Quote),
-      ",": UInt32(kVK_ANSI_Comma), ".": UInt32(kVK_ANSI_Period),
-      "/": UInt32(kVK_ANSI_Slash),
-      "return": UInt32(kVK_Return), "tab": UInt32(kVK_Tab),
-      "space": UInt32(kVK_Space), "escape": UInt32(kVK_Escape),
-      "delete": UInt32(kVK_Delete), "home": UInt32(kVK_Home),
-      "end": UInt32(kVK_End), "pageup": UInt32(kVK_PageUp),
-      "page up": UInt32(kVK_PageUp), "pagedown": UInt32(kVK_PageDown),
-      "page down": UInt32(kVK_PageDown), "left": UInt32(kVK_LeftArrow),
-      "right": UInt32(kVK_RightArrow), "up": UInt32(kVK_UpArrow),
-      "down": UInt32(kVK_DownArrow), "arrowleft": UInt32(kVK_LeftArrow),
-      "arrowright": UInt32(kVK_RightArrow), "arrowup": UInt32(kVK_UpArrow),
-      "arrowdown": UInt32(kVK_DownArrow), "printscr": UInt32(kVK_F13),
-    ]
-    let functionKeys: [UInt32] = [
-      UInt32(kVK_F1), UInt32(kVK_F2), UInt32(kVK_F3), UInt32(kVK_F4),
-      UInt32(kVK_F5), UInt32(kVK_F6), UInt32(kVK_F7), UInt32(kVK_F8),
-      UInt32(kVK_F9), UInt32(kVK_F10), UInt32(kVK_F11), UInt32(kVK_F12),
-      UInt32(kVK_F13), UInt32(kVK_F14), UInt32(kVK_F15), UInt32(kVK_F16),
-      UInt32(kVK_F17), UInt32(kVK_F18), UInt32(kVK_F19), UInt32(kVK_F20),
-    ]
-    for (index, code) in functionKeys.enumerated() {
-      values["f\(index + 1)"] = code
-    }
-    return values
-  }()
+  private static let supportedKeys = Set(
+    Array("abcdefghijklmnopqrstuvwxyz0123456789`-=[]\\;'.,/").map(String.init)
+      + (1...20).map { "f\($0)" }
+      + [
+        "return", "tab", "space", "escape", "delete", "home", "end", "pageup",
+        "pagedown", "left", "right", "up", "down", "printscr",
+      ]
+  )
 
   private static let keyAliases: [String: String] = [
+    "page up": "pageup", "page down": "pagedown",
+    "arrowleft": "left", "arrowright": "right", "arrowup": "up", "arrowdown": "down",
     "grave": "`", "backtick": "`",
     "minus": "-", "hyphen": "-",
     "equal": "=", "equals": "=",
@@ -129,23 +93,23 @@ public enum BindingParser {
     let tokens = rawTokens.flatMap { aliases[$0] ?? [$0] }
 
     var seenModifiers = Set<String>()
-    var modifierBits: UInt32 = 0
-    var key: (name: String, code: UInt32)?
+    var modifierBits: BindingModifiers = []
+    var key: String?
 
     for (index, token) in tokens.enumerated() {
       if let modifier = modifierCodes[token] {
         guard seenModifiers.insert(token).inserted else {
           throw ValidationError("bind contains duplicate modifier '\(token)': \(value)")
         }
-        modifierBits |= modifier
-      } else if let keyCode = keyCodes[keyAliases[token] ?? token] {
+        modifierBits.formUnion(modifier)
+      } else if supportedKeys.contains(keyAliases[token] ?? token) {
         guard key == nil else {
           throw ValidationError("bind contains more than one key: \(value)")
         }
         guard index == tokens.index(before: tokens.endIndex) else {
           throw ValidationError("the key must be the last token in bind: \(value)")
         }
-        key = (keyAliases[token] ?? token, keyCode)
+        key = keyAliases[token] ?? token
       } else {
         throw ValidationError("bind contains unknown token '\(token)': \(value)")
       }
@@ -155,10 +119,10 @@ public enum BindingParser {
       throw ValidationError("bind must contain a key: \(value)")
     }
     let modifierOrder = ["cmd", "ctrl", "shift", "opt"]
-    let normalizedTokens = modifierOrder.filter(seenModifiers.contains) + [key.name]
+    let normalizedTokens = modifierOrder.filter(seenModifiers.contains) + [key]
     return .binding(
       HotKeyBinding(
-        keyCode: key.code,
+        key: key,
         modifiers: modifierBits,
         normalized: normalizedTokens.joined(separator: "+")
       )
@@ -184,7 +148,7 @@ public enum BindingParser {
     let aliases = try resolvedAliases(aliases)
     let tokens = rawTokens.flatMap { aliases[$0] ?? [$0] }
     var seenModifiers = Set<String>()
-    var modifierBits: UInt32 = 0
+    var modifierBits: BindingModifiers = []
 
     for token in tokens {
       guard let modifier = modifierCodes[token] else {
@@ -195,7 +159,7 @@ public enum BindingParser {
           "modifier expression contains duplicate modifier '\(token)': \(value)"
         )
       }
-      modifierBits |= modifier
+      modifierBits.formUnion(modifier)
     }
 
     let modifierOrder = ["cmd", "ctrl", "shift", "opt"]
@@ -217,7 +181,7 @@ public enum BindingParser {
       guard builtinAliases[name] == nil else {
         throw ValidationError("cannot redefine builtin alias '\(name)'")
       }
-      guard modifierCodes[name] == nil, keyCodes[keyAliases[name] ?? name] == nil else {
+      guard modifierCodes[name] == nil, !supportedKeys.contains(keyAliases[name] ?? name) else {
         throw ValidationError("alias '\(name)' conflicts with a supported bind token")
       }
       guard configuredNames.insert(name).inserted else {
@@ -283,7 +247,7 @@ public enum BindingParser {
         guard seenModifiers.insert(token).inserted else {
           throw ValidationError("alias '\(name)' contains duplicate modifier '\(token)'")
         }
-      } else if keyCodes[keyAliases[token] ?? token] != nil {
+      } else if supportedKeys.contains(keyAliases[token] ?? token) {
         guard !sawKey else {
           throw ValidationError("alias '\(name)' contains more than one key")
         }
