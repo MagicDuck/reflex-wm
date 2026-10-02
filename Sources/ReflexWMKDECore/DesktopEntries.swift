@@ -48,13 +48,16 @@ public struct DesktopEntries: Sendable {
       var candidates: [URL] = []
       if let files = FileManager.default.enumerator(at: directory, includingPropertiesForKeys: nil)
       {
-        candidates += files.compactMap { $0 as? URL }.map {
-          $0.resolvingSymlinksInPath().standardizedFileURL
-        }.filter {
-          $0.path.hasPrefix(directory.path + "/")
-            && String($0.path.dropFirst(directory.path.count + 1)).replacingOccurrences(
-              of: "/", with: "-") == id
-        }.sorted { $0.path < $1.path }
+        let prefix = directory.path + "/"
+        for item in files {
+          guard let file = item as? URL else { continue }
+          let url = file.resolvingSymlinksInPath().standardizedFileURL
+          guard url.path.hasPrefix(prefix) else { continue }
+          let relativePath = String(url.path.dropFirst(prefix.count))
+          let candidateID = relativePath.replacingOccurrences(of: "/", with: "-")
+          if candidateID == id { candidates.append(url) }
+        }
+        candidates.sort { $0.path < $1.path }
       }
       for url in candidates where FileManager.default.fileExists(atPath: url.path) {
         let entry = try read(url, id: id)
