@@ -22,6 +22,11 @@ reported by `swift build -c release --show-bin-path`.
 
 ## Configuration
 
+`hyper` expands to Meta+Ctrl+Alt+Shift. Shifted ANSI punctuation and digits are
+registered using their resulting symbols, as KWin expects: for example,
+`hyper + '` uses the double-quote symbol with Meta+Ctrl+Alt. Shift remains explicit
+for letters and special keys. Keyboard layouts with different shifted symbols
+can differ from the ANSI mapping.
 
 Use `notify-win-info` to discover the actual window application ID and desktop entry
 ID; these may differ. `app_id` matches KWin's `resourceClass` exactly (Wayland app
