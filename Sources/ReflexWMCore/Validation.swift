@@ -33,7 +33,9 @@ public struct ValidationError: LocalizedError, Equatable, Sendable {
 }
 
 public enum ConfigurationValidator {
-  public static func validate(_ configuration: Configuration) throws -> ValidatedConfiguration {
+  public static func validate(_ configuration: Configuration, supportsCapsLockRemap: Bool = true)
+    throws -> ValidatedConfiguration
+  {
     try BindingParser.validateAliases(configuration.aliases)
     var seenBindings = Set<HotKeyBinding>()
     var result: [ValidatedShortcut] = []
@@ -89,7 +91,7 @@ public enum ConfigurationValidator {
         )
       )
     }
-    let capsLockRemap = try configuration.remap?.capsLock.map {
+    let capsLockRemap = try (supportsCapsLockRemap ? configuration.remap?.capsLock : nil).map {
       try BindingParser.parseModifiers($0, aliases: configuration.aliases)
     }
     return ValidatedConfiguration(shortcuts: result, capsLockRemap: capsLockRemap)

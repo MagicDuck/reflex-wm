@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import Foundation
 import ReflexWMCore
+import ReflexWMMacSupport
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -88,7 +89,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let validated = try ConfigurationValidator.validate(configuration)
       let remapWarning = try hotKeys.apply(
         validated.shortcuts,
-        capsLockModifiers: validated.capsLockRemap?.modifiers
+        capsLockModifiers: validated.capsLockRemap?.modifiers.carbonModifiers
       )
       let activeCount = validated.shortcuts.filter { $0.binding != nil }.count
       let status = "Loaded \(activeCount) shortcut\(activeCount == 1 ? "" : "s")"

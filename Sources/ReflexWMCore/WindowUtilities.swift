@@ -1,5 +1,9 @@
 import Foundation
 
+#if canImport(CoreGraphics)
+  import CoreGraphics
+#endif
+
 public enum MatchResolver {
   public static func firstMatchingIndexes(
     conditions: [MatchCondition],

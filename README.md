@@ -2,6 +2,8 @@
 
 `reflex-wm` is a macOS 26 menu-bar agent that binds global shortcuts to app toggling and focused-window actions. It reloads `~/.config/reflex-wm.toml` whenever the file changes.
 
+For **KDE Plasma 6 on Wayland**, see [Linux build, configuration, and validation](README-kde.md).
+
 ## Requirements
 
 - macOS 26

@@ -1,0 +1,12 @@
+{
+  "KPlugin": {
+    "Id": "reflex-wm",
+    "Name": "reflex-wm",
+    "Description": "Window operations for the reflex-wm background program",
+    "Version": "1.0.0",
+    "License": "GPL-3.0-only"
+  },
+  "KPackageStructure": "KWin/Script",
+  "X-Plasma-API": "declarativescript",
+  "X-Plasma-MainScript": "code/main.qml"
+}

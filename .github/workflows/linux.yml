@@ -1,0 +1,81 @@
+name: Linux backend
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y libdbus-1-dev pkg-config libglib2.0-bin nodejs dbus g++
+      - name: Swift tests and D-Bus session tests
+        run: dbus-run-session -- swift test
+      - name: KWin action tests
+        run: node scripts/test-kwin.cjs
+      - name: Build release package
+        run: ./scripts/build-linux.sh
+      - name: Verify release runtime dependencies
+        run: |
+          dependencies=$(ldd build/linux/x86_64/reflex-wm-kde)
+          printf '%s\n' "$dependencies"
+          case "$dependencies" in
+            *'not found'*|*libswift*|*libFoundation*|*lib_Foundation*)
+              echo 'Release binary has missing dependencies or requires a Swift installation.' >&2
+              exit 1
+              ;;
+          esac
+          build/linux/x86_64/reflex-wm-kde --help
+      - name: Checksum release archive
+        working-directory: build
+        run: sha256sum reflex-wm-kde-linux-x86_64.tar.gz > reflex-wm-kde-linux-x86_64.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reflex-wm-kde-linux-x86_64
+          path: |
+            build/reflex-wm-kde-linux-x86_64.tar.gz
+            build/reflex-wm-kde-linux-x86_64.tar.gz.sha256
+          if-no-files-found: error
+  release:
+    # Merging a PR updates master. Direct pushes to master publish builds too.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    concurrency:
+      group: kde-release-${{ github.sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: reflex-wm-kde-linux-x86_64
+          path: release-assets
+      - name: Publish KDE release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        working-directory: release-assets
+        run: |
+          tag="kde-${RELEASE_COMMIT}"
+          cat > release-notes.txt <<'EOF'
+          Release build of reflex-wm-kde for KDE Plasma 6 on Wayland (Linux x86_64).
+
+          Built on Ubuntu 24.04 with the Swift runtime statically linked. Requires a compatible Linux distribution with glibc 2.39 or newer, libdbus, Plasma 6, and GLib's gio tool. Installation also needs kpackagetool6 and kwriteconfig6.
+
+          Download and extract reflex-wm-kde-linux-x86_64.tar.gz, then run ./scripts/install-linux.sh inside the extracted directory. The archive includes the executable, KWin script, installer, optional systemd unit, and README-kde.md. Restart reflex-wm after upgrading.
+          EOF
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --target "$RELEASE_COMMIT" \
+              --title "KDE build ${RELEASE_COMMIT}" --notes-file release-notes.txt
+          fi
+          gh release upload "$tag" reflex-wm-kde-linux-x86_64.tar.gz \
+            reflex-wm-kde-linux-x86_64.tar.gz.sha256 --clobber
