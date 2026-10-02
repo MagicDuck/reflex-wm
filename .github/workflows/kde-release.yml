@@ -77,8 +77,6 @@ jobs:
           Release build of reflex-wm-kde for KDE Plasma 6 on Wayland (Linux x86_64).
 
           Built on Ubuntu 24.04 with the Swift runtime statically linked. Requires a compatible Linux distribution with glibc 2.39 or newer, libdbus, Plasma 6, and GLib's gio tool.
-
-          Download and extract reflex-wm-kde-linux-x86_64.tar.gz, create ~/.config/reflex-wm.toml, then run ./reflex-wm-kde inside the extracted directory. The archive includes the executable with embedded KWin scripts and README-kde.md. Restart reflex-wm after upgrading.
           EOF
           if ! gh release view "$tag" >/dev/null 2>&1; then
             gh release create "$tag" --target "$RELEASE_COMMIT" \
