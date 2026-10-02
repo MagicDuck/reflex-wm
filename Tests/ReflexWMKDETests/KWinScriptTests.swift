@@ -4,7 +4,7 @@ import XCTest
 @testable import ReflexWMKDE
 
 final class KWinScriptTests: XCTestCase {
-  private let file = URL(fileURLWithPath: "/data/kwin/scripts/reflex-wm/contents/code/main.qml")
+  private let file = URL(fileURLWithPath: "/data/reflex-wm/kwin/main.qml")
 
   func testLoadsQMLAndRunsOnlyItsScriptThenUnloadsOnShutdown() throws {
     let bus = ScriptBus()
@@ -26,14 +26,14 @@ final class KWinScriptTests: XCTestCase {
     XCTAssertEqual(bus.calls.last?.arguments, [.string(KWinScript.plugin)])
   }
 
-  func testReplacesCrashAndLegacyScriptsBeforeLoading() throws {
+  func testReplacesCrashScriptBeforeLoading() throws {
     let bus = ScriptBus()
-    bus.loaded = ["reflex-wm", KWinScript.plugin]
+    bus.loaded = [KWinScript.plugin]
     bus.deferDeletion = true
     let script = KWinScript(bus: bus, file: file)
     let now = Date()
     try script.poll(now: now)
-    XCTAssertEqual(bus.calls.filter { $0.method == "unloadScript" }.count, 2)
+    XCTAssertEqual(bus.calls.filter { $0.method == "unloadScript" }.count, 1)
     try script.poll(now: now.addingTimeInterval(0.2))
     XCTAssertFalse(bus.calls.contains { $0.method == "loadDeclarativeScript" })
     // Model KWin processing deleteLater before the next lifecycle attempt.
@@ -108,22 +108,68 @@ final class KWinScriptTests: XCTestCase {
     XCTAssertTrue(bus.calls.contains { $0.method == "run" })
   }
 
-  func testInstalledScriptUsesXDGDirectoriesAndReportsMissingPackage() throws {
-    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-    defer { try? FileManager.default.removeItem(at: directory) }
-    let user = directory.appendingPathComponent("user")
-    let system = directory.appendingPathComponent("system")
-    let relative = "kwin/scripts/reflex-wm/contents/code/main.qml"
-    let environment = ["XDG_DATA_HOME": user.path, "XDG_DATA_DIRS": system.path]
-    XCTAssertThrowsError(try KWinScript.installedScript(environment: environment))
-    for root in [system, user] {
-      let target = root.appendingPathComponent(relative)
-      try FileManager.default.createDirectory(
-        at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try Data("test".utf8).write(to: target)
-      XCTAssertEqual(try KWinScript.installedScript(environment: environment), target)
+  func testEmbeddedScriptsExactlyMatchTheirSourceFiles() throws {
+    let scripts = try TemporaryKWinScripts()
+    defer { try? scripts.remove() }
+    let source = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+      .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent(
+        "Resources/kwin")
+    for name in ["main.qml", "windows.js"] {
+      XCTAssertEqual(
+        try Data(contentsOf: scripts.directory.appendingPathComponent(name)),
+        try Data(contentsOf: source.appendingPathComponent(name)))
     }
   }
+
+  func testExtractionIsPrivateUniqueAndRemovedOnDeinit() throws {
+    var first: TemporaryKWinScripts? = try TemporaryKWinScripts()
+    let firstDirectory = try XCTUnwrap(first?.directory)
+    let second = try TemporaryKWinScripts()
+    defer { try? second.remove() }
+    XCTAssertNotEqual(firstDirectory, second.directory)
+    for (url, permissions) in [
+      (firstDirectory, 0o700), (firstDirectory.appendingPathComponent("main.qml"), 0o600),
+      (firstDirectory.appendingPathComponent("windows.js"), 0o600),
+    ] {
+      let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+      XCTAssertEqual((attributes[.posixPermissions] as? NSNumber)?.intValue, permissions)
+    }
+    first = nil
+    XCTAssertFalse(FileManager.default.fileExists(atPath: firstDirectory.path))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: second.mainQML.path))
+  }
+
+  func testRuntimeKeepsExtractedFilesAcrossRecoveryThenRemovesAfterUnload() throws {
+    let bus = ScriptBus()
+    let script = try KWinScript(bus: bus)
+    let now = Date()
+    try script.poll(now: now)
+    try script.poll(now: now.addingTimeInterval(0.2))
+    let path = try XCTUnwrap(
+      bus.calls.first { $0.method == "loadDeclarativeScript" }?.arguments.first?.string)
+    let directory = URL(fileURLWithPath: path).deletingLastPathComponent()
+    XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+    script.ownerChanged(nil, now: now.addingTimeInterval(1))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: path))
+    bus.loaded = []
+    script.ownerChanged(":1.20", now: now.addingTimeInterval(2))
+    try script.poll(now: now.addingTimeInterval(2))
+    try script.poll(now: now.addingTimeInterval(2.2))
+    XCTAssertEqual(bus.calls.last?.method, "run")
+    XCTAssertEqual(
+      bus.calls.filter { $0.method == "loadDeclarativeScript" }.last?.arguments.first?.string, path)
+    bus.onUnload = { XCTAssertTrue(FileManager.default.fileExists(atPath: path)) }
+    try script.shutdown()
+    XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
+    try script.shutdown()
+  }
+
+  func testExtractionReportsTemporaryDirectoryFailure() {
+    let missingParent = FileManager.default.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString)
+    XCTAssertThrowsError(try TemporaryKWinScripts(parentDirectory: missingParent))
+  }
+
 }
 
 private final class ScriptBus: DBusCalling {
@@ -140,6 +186,7 @@ private final class ScriptBus: DBusCalling {
   var failRun = false
   var unavailable = false
   var loadID: Int32 = 7
+  var onUnload: (() -> Void)?
   func call(
     _ destination: String, _ path: String, _ interface: String, _ method: String,
     _ arguments: [DBusValue], timeout: Int32
@@ -154,6 +201,7 @@ private final class ScriptBus: DBusCalling {
       return [.string(":1.10")]
     case "isScriptLoaded": return [.bool(loaded.contains(arguments[0].string!))]
     case "unloadScript":
+      onUnload?()
       if !deferDeletion { loaded.remove(arguments[0].string!) }
       return [.bool(true)]
     case "loadDeclarativeScript":

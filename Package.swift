@@ -24,7 +24,13 @@ if buildKDE {
     .systemLibrary(
       name: "CDBus", pkgConfig: "dbus-1", providers: [.apt(["libdbus-1-dev"]), .brew(["dbus"])]))
   targets.append(
-    .executableTarget(name: "ReflexWMKDE", dependencies: ["ReflexWMKDECore", "CDBus"]))
+    .executableTarget(
+      name: "ReflexWMKDE", dependencies: ["ReflexWMKDECore", "CDBus"],
+      plugins: ["EmbedKWinScriptsPlugin"]))
+  targets.append(.executableTarget(name: "EmbedKWinScripts", path: "Tools/EmbedKWinScripts"))
+  targets.append(
+    .plugin(
+      name: "EmbedKWinScriptsPlugin", capability: .buildTool(), dependencies: ["EmbedKWinScripts"]))
   targets.append(.testTarget(name: "ReflexWMKDETests", dependencies: ["ReflexWMKDE"]))
 } else {
   targets.append(

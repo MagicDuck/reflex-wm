@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const engine = vm.createContext({console});
-vm.runInContext(fs.readFileSync(path.join(__dirname, '../Resources/kwin/reflex-wm/contents/code/windows.js'), 'utf8'), engine);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '../Resources/kwin/windows.js'), 'utf8'), engine);
 const rect = (x,y,width,height) => ({x,y,width,height});
 const outputs = [{geometry: rect(0,0,1001,800)}, {geometry: rect(1001,0,2000,1200)}];
 const desktop = {};

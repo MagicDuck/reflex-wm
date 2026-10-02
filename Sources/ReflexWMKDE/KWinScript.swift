@@ -8,33 +8,22 @@ final class KWinScript {
   static let plugin = "reflex-wm-runtime"
   private let bus: any DBusCalling
   private let file: URL
+  private let temporaryScripts: TemporaryKWinScripts?
   private var owner: String?
   private enum Phase { case replacing, loading, running }
   private var phase = Phase.replacing
   private var ownsScript = false
   private var nextAttempt = Date.distantPast
 
-  init(bus: any DBusCalling, file: URL) {
+  init(bus: any DBusCalling, file: URL, temporaryScripts: TemporaryKWinScripts? = nil) {
     self.bus = bus
     self.file = file
+    self.temporaryScripts = temporaryScripts
   }
 
-  static func installedScript(environment: [String: String] = ProcessInfo.processInfo.environment)
-    throws -> URL
-  {
-    let user =
-      environment["XDG_DATA_HOME"].flatMap { $0.isEmpty ? nil : $0 }
-      ?? NSHomeDirectory() + "/.local/share"
-    let system =
-      environment["XDG_DATA_DIRS"].flatMap { $0.isEmpty ? nil : $0 }
-      ?? "/usr/local/share:/usr/share"
-    for directory in [user] + system.split(separator: ":").map(String.init) {
-      guard directory.hasPrefix("/") else { continue }
-      let url = URL(fileURLWithPath: directory).appendingPathComponent(
-        "kwin/scripts/reflex-wm/contents/code/main.qml")
-      if FileManager.default.isReadableFile(atPath: url.path) { return url }
-    }
-    throw ValidationError("KWin script package is missing; run scripts/install-linux.sh first")
+  convenience init(bus: any DBusCalling) throws {
+    let scripts = try TemporaryKWinScripts()
+    self.init(bus: bus, file: scripts.mainQML, temporaryScripts: scripts)
   }
 
   func ownerChanged(_ value: String?, now: Date = Date()) {
@@ -62,15 +51,13 @@ final class KWinScript {
     }
     switch phase {
     case .replacing:
-      // Remove a legacy manually enabled copy and any copy left after a crash.
-      for name in ["reflex-wm", Self.plugin] {
-        if try loaded(name) { _ = try call("unloadScript", [.string(name)]) }
-      }
+      // Replace a runtime copy left after a crash.
+      if try loaded(Self.plugin) { _ = try call("unloadScript", [.string(Self.plugin)]) }
       phase = .loading
       // unloadScript uses deleteLater; yield to KWin before loading again.
       nextAttempt = now.addingTimeInterval(0.1)
     case .loading:
-      if try loaded(Self.plugin) || loaded("reflex-wm") {
+      if try loaded(Self.plugin) {
         phase = .replacing
         return
       }
@@ -99,9 +86,11 @@ final class KWinScript {
   }
 
   func shutdown() throws {
-    guard ownsScript, owner != nil else { return }
-    _ = try call("unloadScript", [.string(Self.plugin)])
-    ownsScript = false
+    if ownsScript, owner != nil {
+      _ = try call("unloadScript", [.string(Self.plugin)])
+      ownsScript = false
+    }
+    try temporaryScripts?.remove()
   }
 
   private func loaded(_ name: String) throws -> Bool {
