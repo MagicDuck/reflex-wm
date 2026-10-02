@@ -27,9 +27,8 @@ jobs:
           bin_path=$(swift build -c release --show-bin-path)
           mkdir -p build/linux/x86_64
           install -m 755 "$bin_path/reflex-wm-kde" build/linux/x86_64/reflex-wm-kde
-          cp README-kde.md build/linux/x86_64/
           tar -czf build/reflex-wm-kde-linux-x86_64.tar.gz \
-            -C build/linux/x86_64 reflex-wm-kde README-kde.md
+            -C build/linux/x86_64 reflex-wm-kde
       - name: Verify release runtime dependencies
         run: |
           dependencies=$(ldd build/linux/x86_64/reflex-wm-kde)

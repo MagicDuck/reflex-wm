@@ -9,6 +9,10 @@ final class KDETests: XCTestCase {
     for (text, expected) in [
       ("super+alt+e", Int32(0x1800_0045)), ("ctrl+printscr", 0x0500_0009),
       ("shift+delete", 0x0300_0003), ("f20", 0x0100_0043), ("ctrl+;", 0x0400_003b),
+      ("super+'", 0x1000_0027), ("hyper+'", 0x1c00_0022), ("hyper+apostrophe", 0x1c00_0022),
+      ("hyper+quote", 0x1c00_0022), ("shift+'", 0x0000_0022), ("hyper+;", 0x1c00_003a),
+      ("hyper+/", 0x1c00_003f), ("hyper+1", 0x1c00_0021), ("shift+equal", 0x0000_002b),
+      ("hyper+a", 0x1e00_0041), ("hyper+left", 0x1f00_0012),
     ] {
       guard case .binding(let binding) = try BindingParser.parse(text) else {
         return XCTFail("missing binding")
