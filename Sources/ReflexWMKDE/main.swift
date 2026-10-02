@@ -31,7 +31,7 @@ final class KDEApplication {
     registry = ShortcutRegistry(service: service)
     notifier = Notifier(bus: bus)
     bridge = WindowBridge(bus: bus)
-    kwinScript = KWinScript(bus: bus, file: try KWinScript.installedScript())
+    kwinScript = try KWinScript(bus: bus)
     actions = ActionController(bridge: bridge, notifier: notifier, entries: DesktopEntries())
     try FileManager.default.createDirectory(
       at: configURL.deletingLastPathComponent(), withIntermediateDirectories: true)

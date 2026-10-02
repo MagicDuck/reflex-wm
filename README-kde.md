@@ -6,20 +6,23 @@ D-Bus. It has no tray icon, C++ adapter, or Caps Lock remapping.
 
 ## Build and install
 
-Merges into `master` publish a release build on GitHub's **Releases** page. Direct
-pushes to `master` also publish builds. Each release is tagged `kde-<commit SHA>`
-and includes `reflex-wm-kde-linux-x86_64.tar.gz` and its SHA-256 checksum.
+`.github/workflows/kde-tests.yml` runs the Linux tests on pull requests.
+`.github/workflows/kde-release.yml` builds and publishes a release on GitHub's
+**Releases** page only when a PR is merged into `main`, using that PR's merged
+commit. Each release is tagged `kde-<commit SHA>` and includes
+`reflex-wm-kde-linux-x86_64.tar.gz` and its SHA-256 checksum.
 
-To install a downloaded release, extract the archive into a directory and run
-`./scripts/install-linux.sh` inside it. It includes the binary, KWin script,
-installer, this README, and optional systemd unit. The CI build targets Linux
+To use a downloaded release, extract the archive into a directory, create
+`~/.config/reflex-wm.toml`, and run `./reflex-wm-kde` inside the extracted directory.
+The archive includes the binary with embedded KWin scripts and this README.
+You can optionally copy the binary into a directory on your `PATH`.
+The CI build targets Linux
 x86_64 on Ubuntu 24.04 (glibc 2.39 or newer) and statically links the Swift runtime;
 Swift is not required to run it. The KDE and system dependencies below still apply.
 
 Build on Linux with Swift 6.2 or newer, a C++ compiler (for the existing TOML
 parser dependency), `pkg-config`, and libdbus development headers. Runtime dependencies
-are Plasma 6 Wayland, KGlobalAccel, libdbus, and GLib's `gio` tool. Installation also
-requires `kpackagetool6` and `kwriteconfig6` from KDE.
+are Plasma 6 Wayland, KGlobalAccel, libdbus, and GLib's `gio` tool.
 
 On Debian/Ubuntu, install `libdbus-1-dev pkg-config g++ libglib2.0-bin` in addition to
 Swift and your Plasma installation. Package names differ on other distributions.
@@ -27,34 +30,35 @@ Swift and your Plasma installation. Package names differ on other distributions.
 ```sh
 swift test
 node scripts/test-kwin.cjs
-./scripts/build-linux.sh
-./scripts/install-linux.sh
+swift build -c release --product reflex-wm-kde --static-swift-stdlib
 ```
 
-The build produces `build/linux/<architecture>/reflex-wm-kde`, its KWin script package,
-an optional user systemd unit, and `build/reflex-wm-kde-linux-<architecture>.tar.gz`.
-The executable is built for the host Linux
-architecture/distribution; this is a separate artifact from the macOS `.app`.
+The build produces `reflex-wm-kde` with embedded KWin scripts in the directory
+reported by `swift build -c release --show-bin-path`. It is built for the host
+Linux architecture/distribution; this is a separate artifact from the macOS `.app`.
+The release workflow also packages the executable and README into a download archive.
 
 Create `~/.config/reflex-wm.toml`, then start the program:
 
 ```sh
-~/.local/bin/reflex-wm-kde
-# Or start it with your graphical session:
-systemctl --user enable --now reflex-wm.service
+bin_path=$(swift build -c release --show-bin-path)
+"$bin_path/reflex-wm-kde"
 ```
 
 reflex-wm loads and starts its QML script through KWin's D-Bus interface, unloads
 it on normal shutdown, and loads it again after KWin restarts. No manual enabling
-in KWin Scripts is needed. The installer disables the old package autoload setting
-when upgrading from a manually enabled installation. Keep that setting disabled;
-the program uses a separate runtime script ID.
+in KWin Scripts is needed, and no KWin package is registered. Both `main.qml` and
+`windows.js` are compiled into the binary. On startup, reflex-wm extracts them into
+a unique private temporary directory, keeping them together for relative imports.
+The files remain available across KWin restarts and are removed on normal shutdown.
+An abrupt termination can leave the temporary directory for the system to clean up.
 
-The installer updates an existing script. Restart reflex-wm after upgrading to
-load the new version; no logout is needed. Stop the program with Ctrl+C or
-`systemctl --user stop reflex-wm.service`. A script left after a crash is replaced
-on the next startup. The script package is located using `XDG_DATA_HOME` and
-`XDG_DATA_DIRS`, with standard defaults.
+Restart reflex-wm after upgrading the binary to load the embedded script's new
+version; no logout is needed. Stop the program with Ctrl+C or SIGTERM.
+A script left after a crash is replaced
+on the next startup. Running the binary directly also works without installing
+script files. SwiftPM's build plugin embeds the current files from `Resources/kwin`
+automatically when building or testing.
 
 ## Configuration
 
@@ -108,7 +112,7 @@ Changes made in KDE Settings persist until the next successful reload. Editing o
 atomically replacing the configuration file triggers reload; SIGHUP also reloads:
 
 ```sh
-systemctl --user kill --signal=HUP reflex-wm.service
+kill -HUP PID  # Replace PID with the running reflex-wm-kde process ID.
 ```
 
 Conflicts are reported without stealing other applications' shortcuts. Invalid
@@ -127,8 +131,7 @@ geometry changes remain subject to application size limits and KWin rules. Leave
 fullscreen before resizing a window. Script restarts reset focus history and saved
 restore geometry.
 
-Warnings go to stderr and desktop notifications. With systemd, inspect logs using
-`journalctl --user -u reflex-wm.service`. If window actions time out, check the
+Warnings go to stderr and desktop notifications. If window actions time out, check the
 KWin script startup/recovery diagnostics in the logs. A second reflex-wm instance
 is rejected through D-Bus name ownership.
 
@@ -150,11 +153,11 @@ must also be checked on Plasma 6 Wayland:
 - Modify, add, remove, and disable shortcuts; test atomic saves and invalid TOML.
 - Introduce a conflict with a KDE shortcut and verify prior bindings are restored.
 - Change a binding in KDE Settings; verify it survives until file reload/SIGHUP.
-- Start reflex-wm with its package disabled in KWin Scripts; verify window actions
-  work without enabling it. Stop/restart the program and verify runtime script
+- Start reflex-wm without registering a KWin package; verify window actions work.
+  Stop/restart the program and verify runtime script
   cleanup/replacement and duplicate-instance rejection.
 - Verify automatic script reload after KWin restarts in a disposable session, and
-  check missing-package and script startup/recovery diagnostics.
+  check temporary-file extraction and script startup/recovery diagnostics.
 - Test shortcut-service restart recovery in a disposable session. Do not terminate
   your compositor to perform this check in a session containing unsaved work.
 

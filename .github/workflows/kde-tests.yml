@@ -1,0 +1,26 @@
+name: KDE tests
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.actor }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    container: swift:6.2-noble
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y libdbus-1-dev pkg-config libglib2.0-bin nodejs dbus g++
+      - name: Swift tests and D-Bus session tests
+        run: dbus-run-session -- swift test
+      - name: KWin action tests
+        run: node scripts/test-kwin.cjs
