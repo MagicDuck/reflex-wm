@@ -58,6 +58,26 @@ jobs:
       - name: Build Windows release
         shell: pwsh
         run: |
+          $vcLib = Join-Path $env:VCToolsInstallDir 'lib\x64'
+          $sdkVersion = ($env:WindowsSDKVersion).TrimEnd('\')
+          $sdkLibRoot = Join-Path $env:WindowsSdkDir "Lib\$sdkVersion"
+          $ucrtLib = Join-Path $sdkLibRoot 'ucrt\x64'
+          $windowsLib = Join-Path $sdkLibRoot 'um\x64'
+          foreach ($library in @('msvcrt.lib', 'oldnames.lib', 'msvcprt.lib')) {
+            if (-not (Test-Path (Join-Path $vcLib $library))) {
+              throw "MSVC library is missing: $(Join-Path $vcLib $library)"
+            }
+          }
+          foreach ($library in @('ucrt.lib', 'kernel32.lib')) {
+            $libraryDirectory = if ($library -eq 'ucrt.lib') { $ucrtLib } else { $windowsLib }
+            if (-not (Test-Path (Join-Path $libraryDirectory $library))) {
+              throw "Windows SDK library is missing: $(Join-Path $libraryDirectory $library)"
+            }
+          }
+          $env:LIB = (@($vcLib, $ucrtLib, $windowsLib) + @($env:LIB -split ';' | Where-Object { $_ }) |
+            Select-Object -Unique) -join ';'
+          Write-Host "Using MSVC libraries: $vcLib"
+          Write-Host "Using Windows SDK libraries: $ucrtLib; $windowsLib"
           swift build -c release --product reflex-wm
           if ($LASTEXITCODE -ne 0) { throw "Swift release build failed ($LASTEXITCODE)" }
           $binPath = (swift build -c release --show-bin-path | Select-Object -Last 1).Trim()
