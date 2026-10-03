@@ -2,15 +2,19 @@
 var workspace
 var makeRect
 var maximizeArea
+var callLater
+var pendingScreenMoves = {}
 var history = []
 var restoreFrames = {}
 var appOrder = {}
 var splitLeft = true
 
-function initialize(ws, rect, areaKind) {
+function initialize(ws, rect, areaKind, defer) {
     workspace = ws
     makeRect = rect
     maximizeArea = areaKind
+    callLater = defer
+    pendingScreenMoves = {}
     history = []
     restoreFrames = {}
     appOrder = {}
@@ -38,6 +42,7 @@ function removeWindow(window) {
     var key = id(window)
     history = history.filter(function(value) { return value !== key })
     delete restoreFrames[key]
+    delete pendingScreenMoves[key]
     Object.keys(appOrder).forEach(function(app) {
         appOrder[app] = appOrder[app].filter(function(value) { return value !== key })
         if (!appOrder[app].length) delete appOrder[app]
@@ -74,6 +79,7 @@ function area(window, output) {
 function setFrame(window, frame) {
     if (!window.resizeable || !window.moveable) throw new Error("the focused window cannot be moved/resized")
     if (window.fullScreen) throw new Error("leave fullscreen before resizing the window")
+    delete pendingScreenMoves[id(window)]
     window.setMaximize(false, false)
     window.frameGeometry = makeRect(frame.x, frame.y, frame.width, frame.height)
 }
@@ -115,6 +121,7 @@ function execute(command) {
     switch (command.action) {
     case "close":
         if (!window.closeable) throw new Error("the focused window cannot be closed")
+        delete pendingScreenMoves[key]
         window.closeWindow()
         break
     case "toggle-maximize":
@@ -147,14 +154,27 @@ function execute(command) {
         var dest = area(window, destination)
         if (source.width <= 0 || source.height <= 0 || dest.width <= 0 || dest.height <= 0)
             throw new Error("could not determine usable screen geometry")
-        var frame = window.frameGeometry
+        var frame = rectCopy(window.frameGeometry)
         var width = Math.min(frame.width / source.width * dest.width, dest.width)
         var height = Math.min(frame.height / source.height * dest.height, dest.height)
         var x = dest.x + (frame.x - source.x) / source.width * dest.width
         var y = dest.y + (frame.y - source.y) / source.height * dest.height
+        var mapped = { x: Math.min(Math.max(x, dest.x), dest.x + dest.width - width),
+            y: Math.min(Math.max(y, dest.y), dest.y + dest.height - height), width: width, height: height }
         workspace.sendClientToScreen(window, destination)
-        setFrame(window, { x: Math.min(Math.max(x, dest.x), dest.x + dest.width - width),
-            y: Math.min(Math.max(y, dest.y), dest.y + dest.height - height), width: width, height: height })
+        setFrame(window, mapped)
+        // Wayland clients can retain the source size during the output transition.
+        // Reapply the captured target on the next event-loop turn, without overriding
+        // a newer action, a removed window, or a move to a different output.
+        var pending = { frame: mapped, output: destination }
+        pendingScreenMoves[key] = pending
+        callLater(function() {
+            if (pendingScreenMoves[key] !== pending) return
+            delete pendingScreenMoves[key]
+            if (!valid(window) || window.output !== pending.output) return
+            try { setFrame(window, pending.frame) }
+            catch (error) { console.log("reflex-wm: could not finish screen resize: " + error) }
+        })
         delete restoreFrames[key]
         break
     case "focus-next-app-window":
