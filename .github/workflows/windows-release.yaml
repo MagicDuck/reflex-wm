@@ -1,0 +1,105 @@
+name: Windows release
+on:
+  pull_request_target:
+    types: [closed]
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    # Only execute code that has already been merged into the base repository.
+    # This also allows publishing releases for merged PRs from forks.
+    if: github.event.pull_request.merged == true
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          persist-credentials: false
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install Swift
+        shell: pwsh
+        run: |
+          winget install --id Swift.Toolchain --exact --source winget `
+            --accept-package-agreements --accept-source-agreements
+          if ($LASTEXITCODE -ne 0) { throw "Swift toolchain installation failed ($LASTEXITCODE)" }
+          $toolchains = Join-Path $env:LOCALAPPDATA 'Programs\Swift\Toolchains'
+          $toolchain = Get-ChildItem $toolchains -Directory |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if (-not $toolchain) { throw "Swift toolchain was not found under $toolchains" }
+          $swiftBin = Join-Path $toolchain.FullName 'usr\bin'
+          Add-Content -Path $env:GITHUB_PATH -Value $swiftBin
+          Add-Content -Path $env:GITHUB_ENV -Value "REFLEX_SWIFT_ROOT=$env:LOCALAPPDATA\Programs\Swift"
+          $env:PATH = "$swiftBin;$env:PATH"
+          & (Join-Path $swiftBin 'swift.exe') --version
+      - name: Build Windows release
+        shell: pwsh
+        run: |
+          swift build -c release --product reflex-wm
+          if ($LASTEXITCODE -ne 0) { throw "Swift release build failed ($LASTEXITCODE)" }
+          $binPath = (swift build -c release --show-bin-path | Select-Object -Last 1).Trim()
+          if ($LASTEXITCODE -ne 0) { throw "Could not locate the Swift release output directory" }
+          $executable = Join-Path $binPath 'reflex-wm.exe'
+          if (-not (Test-Path $executable)) { throw "Release executable not found: $executable" }
+          & $executable --help
+          if ($LASTEXITCODE -ne 0) { throw "Release executable smoke check failed ($LASTEXITCODE)" }
+          $assetName = 'reflex-wm-windows-x86_64.zip'
+          New-Item -ItemType Directory -Force -Path build\release | Out-Null
+          Copy-Item $executable build\release\reflex-wm.exe
+          $swiftCore = Get-ChildItem $env:REFLEX_SWIFT_ROOT -Filter swiftCore.dll -Recurse -File |
+            Select-Object -First 1
+          if (-not $swiftCore) { throw 'Swift runtime DLLs were not found in the installed toolchain' }
+          Get-ChildItem $swiftCore.DirectoryName -Filter '*.dll' -File |
+            Copy-Item -Destination build\release
+          $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike "$env:REFLEX_SWIFT_ROOT*" }) -join ';'
+          & build\release\reflex-wm.exe --help
+          if ($LASTEXITCODE -ne 0) { throw "Bundled release smoke check failed ($LASTEXITCODE)" }
+          Compress-Archive -Path build\release\reflex-wm.exe -DestinationPath "build\$assetName" -Force
+          Compress-Archive -Path build\release\*.dll -DestinationPath "build\$assetName" -Update
+          $hash = (Get-FileHash "build\$assetName" -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $assetName" | Set-Content "build\$assetName.sha256" -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reflex-wm-windows-x86_64
+          path: |
+            build/reflex-wm-windows-x86_64.zip
+            build/reflex-wm-windows-x86_64.zip.sha256
+          if-no-files-found: error
+  release:
+    if: github.event.pull_request.merged == true
+    needs: build
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    concurrency:
+      group: windows-release-${{ github.event.pull_request.merge_commit_sha }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: reflex-wm-windows-x86_64
+          path: release-assets
+      - name: Publish Windows release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_COMMIT: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: pwsh
+        working-directory: release-assets
+        run: |
+          $tag = "windows-$env:RELEASE_COMMIT"
+          'Windows x86_64 release build of reflex-wm.' | Set-Content release-notes.txt -Encoding utf8
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target $env:RELEASE_COMMIT `
+              --title "Windows build $env:RELEASE_COMMIT" --notes-file release-notes.txt
+            if ($LASTEXITCODE -ne 0) { throw "Could not create GitHub Release $tag" }
+          }
+          gh release upload $tag reflex-wm-windows-x86_64.zip `
+            reflex-wm-windows-x86_64.zip.sha256 --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Could not upload Windows release assets to $tag" }
