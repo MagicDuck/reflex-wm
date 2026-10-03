@@ -1,15 +1,17 @@
 #define UNICODE
 #define _UNICODE
+
 #include <windows.h>
 #include <shellapi.h>
 #include <commctrl.h>
 #include <psapi.h>
+#include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <wchar.h>
+
 #include "CWindows.h"
 
 static HWND app_window;
@@ -39,7 +41,10 @@ static char *to_utf8(const wchar_t *value) {
 }
 
 static LRESULT CALLBACK app_window_proc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
-  if (message == WM_HOTKEY) return 0;
+  if (message == WM_HOTKEY) {
+    return 0;
+  }
+
   if (message == tray_message) {
     if (lparam == WM_RBUTTONUP || lparam == WM_CONTEXTMENU) {
       HMENU menu = CreatePopupMenu();
@@ -49,38 +54,62 @@ static LRESULT CALLBACK app_window_proc(HWND hwnd, UINT message, WPARAM wparam, 
         AppendMenuW(menu, MF_STRING, 11, L"Reload configuration");
         AppendMenuW(menu, MF_STRING, 12, L"Open configuration");
         AppendMenuW(menu, MF_STRING, 13, L"Quit reflex-wm");
-        POINT point; GetCursorPos(&point); SetForegroundWindow(hwnd);
-        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, point.x, point.y, 0, hwnd, NULL);
+        POINT point;
+        GetCursorPos(&point);
+        SetForegroundWindow(hwnd);
+        TrackPopupMenu(
+            menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN, point.x, point.y, 0, hwnd, NULL);
         DestroyMenu(menu);
       }
     }
     return 0;
   }
+
   if (message == WM_COMMAND) {
     PostMessageW(hwnd, WM_APP + 30, LOWORD(wparam), 0);
     return 0;
   }
-  if (message == WM_CLOSE) { DestroyWindow(hwnd); return 0; }
-  if (message == WM_DESTROY) { PostQuitMessage(0); return 0; }
+
+  if (message == WM_CLOSE) {
+    DestroyWindow(hwnd);
+    return 0;
+  }
+  if (message == WM_DESTROY) {
+    PostQuitMessage(0);
+    return 0;
+  }
   return DefWindowProcW(hwnd, message, wparam, lparam);
 }
 
 int rw_app_start(const char *tooltip) {
   app_instance = GetModuleHandleW(NULL);
   wchar_t *wide = to_wide(tooltip);
-  if (wide) { wcsncpy_s(app_tooltip, 128, wide, _TRUNCATE); free(wide); }
+  if (wide) {
+    wcsncpy_s(app_tooltip, 128, wide, _TRUNCATE);
+    free(wide);
+  }
   const wchar_t *class_name = L"ReflexWM.HiddenWindow";
-  WNDCLASSW cls = {0}; cls.lpfnWndProc = app_window_proc; cls.hInstance = app_instance;
+  WNDCLASSW cls = {0};
+  cls.lpfnWndProc = app_window_proc;
+  cls.hInstance = app_instance;
   cls.lpszClassName = class_name;
   RegisterClassW(&cls);
   app_window = CreateWindowExW(0, class_name, L"reflex-wm", 0, 0, 0, 0, 0,
                                HWND_MESSAGE, NULL, app_instance, NULL);
   if (!app_window) return 0;
-  memset(&tray_icon, 0, sizeof(tray_icon)); tray_icon.cbSize = sizeof(tray_icon);
-  tray_icon.hWnd = app_window; tray_icon.uID = tray_id; tray_icon.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-  tray_icon.uCallbackMessage = tray_message; tray_icon.hIcon = LoadIconW(NULL, IDI_APPLICATION);
+  memset(&tray_icon, 0, sizeof(tray_icon));
+  tray_icon.cbSize = sizeof(tray_icon);
+  tray_icon.hWnd = app_window;
+  tray_icon.uID = tray_id;
+  tray_icon.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
+  tray_icon.uCallbackMessage = tray_message;
+  tray_icon.hIcon = LoadIconW(NULL, IDI_APPLICATION);
   wcsncpy_s(tray_icon.szTip, ARRAYSIZE(tray_icon.szTip), app_tooltip, _TRUNCATE);
-  if (!Shell_NotifyIconW(NIM_ADD, &tray_icon)) { DestroyWindow(app_window); app_window = NULL; return 0; }
+  if (!Shell_NotifyIconW(NIM_ADD, &tray_icon)) {
+    DestroyWindow(app_window);
+    app_window = NULL;
+    return 0;
+  }
   return 1;
 }
 
@@ -91,10 +120,27 @@ RWEvent rw_app_poll(int timeout_ms) {
   MSG message;
   do {
     while (PeekMessageW(&message, NULL, 0, 0, PM_REMOVE)) {
-      if (message.message == WM_QUIT) { event.kind = 4; return event; }
-      if (message.message == WM_HOTKEY) { event.kind = 1; event.identifier = (int)message.wParam; return event; }
+      if (message.message == WM_QUIT) {
+        event.kind = 4;
+        return event;
+      }
+      if (message.message == WM_HOTKEY) {
+        event.kind = 1;
+        event.identifier = (int)message.wParam;
+        return event;
+      }
       if (message.message == WM_APP + 30) {
-        switch (message.wParam) { case 11: event.kind=2; break; case 12: event.kind=3; break; case 13: event.kind=4; break; }
+        switch (message.wParam) {
+          case 11:
+            event.kind = 2;
+            break;
+          case 12:
+            event.kind = 3;
+            break;
+          case 13:
+            event.kind = 4;
+            break;
+        }
         if (event.kind) return event;
       }
       TranslateMessage(&message); DispatchMessageW(&message);
@@ -106,22 +152,48 @@ RWEvent rw_app_poll(int timeout_ms) {
 }
 
 void rw_app_stop(void) {
-  if (app_window) { Shell_NotifyIconW(NIM_DELETE, &tray_icon); DestroyWindow(app_window); app_window = NULL; }
+  if (app_window) {
+    Shell_NotifyIconW(NIM_DELETE, &tray_icon);
+    DestroyWindow(app_window);
+    app_window = NULL;
+  }
 }
+
 void rw_app_status(const char *text) {
-  wchar_t *wide = to_wide(text); if (!wide) return;
+  wchar_t *wide = to_wide(text);
+  if (!wide) return;
   wcsncpy_s(app_status, ARRAYSIZE(app_status), wide, _TRUNCATE);
   wcsncpy_s(tray_icon.szTip, ARRAYSIZE(tray_icon.szTip), wide, _TRUNCATE);
-  tray_icon.uFlags = NIF_TIP; Shell_NotifyIconW(NIM_MODIFY, &tray_icon); free(wide);
+  tray_icon.uFlags = NIF_TIP;
+  Shell_NotifyIconW(NIM_MODIFY, &tray_icon);
+  free(wide);
 }
+
 void rw_app_notify(const char *title, const char *body) {
-  wchar_t *wtitle=to_wide(title), *wbody=to_wide(body); if (!wtitle || !wbody) { free(wtitle); free(wbody); return; }
-  tray_icon.uFlags=NIF_INFO; tray_icon.dwInfoFlags=NIIF_INFO; tray_icon.uTimeout=8000;
+  wchar_t *wtitle = to_wide(title);
+  wchar_t *wbody = to_wide(body);
+  if (!wtitle || !wbody) {
+    free(wtitle);
+    free(wbody);
+    return;
+  }
+  tray_icon.uFlags = NIF_INFO;
+  tray_icon.dwInfoFlags = NIIF_INFO;
+  tray_icon.uTimeout = 8000;
   wcsncpy_s(tray_icon.szInfoTitle, ARRAYSIZE(tray_icon.szInfoTitle), wtitle, _TRUNCATE);
   wcsncpy_s(tray_icon.szInfo, ARRAYSIZE(tray_icon.szInfo), wbody, _TRUNCATE);
-  Shell_NotifyIconW(NIM_MODIFY, &tray_icon); free(wtitle); free(wbody);
+  Shell_NotifyIconW(NIM_MODIFY, &tray_icon);
+  free(wtitle);
+  free(wbody);
 }
-void rw_open_path(const char *path) { wchar_t *wide=to_wide(path); if (wide) { ShellExecuteW(NULL,L"open",wide,NULL,NULL,SW_SHOWNORMAL); free(wide); } }
+
+void rw_open_path(const char *path) {
+  wchar_t *wide = to_wide(path);
+  if (wide) {
+    ShellExecuteW(NULL, L"open", wide, NULL, NULL, SW_SHOWNORMAL);
+    free(wide);
+  }
+}
 
 int rw_key_code(const char *name) {
   if (!name) return 0;
