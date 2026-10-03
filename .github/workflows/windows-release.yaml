@@ -38,10 +38,22 @@ jobs:
           $toolchain = Get-ChildItem $toolchains -Directory |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
           if (-not $toolchain) { throw "Swift toolchain was not found under $toolchains" }
+          $platformSdks = Join-Path $env:LOCALAPPDATA 'Programs\Swift\Platforms'
+          $platformSdk = Get-ChildItem $platformSdks -Directory |
+            Sort-Object LastWriteTime -Descending | ForEach-Object {
+              Join-Path $_.FullName 'Windows.platform\Developer\SDKs\Windows.sdk'
+            } | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $platformSdk) { throw "Windows Swift SDK was not found under $platformSdks" }
+          if (-not (Test-Path (Join-Path $platformSdk 'usr\lib\swift\windows'))) {
+            throw "Windows Swift standard libraries were not found in $platformSdk"
+          }
           $swiftBin = Join-Path $toolchain.FullName 'usr\bin'
           Add-Content -Path $env:GITHUB_PATH -Value $swiftBin
           Add-Content -Path $env:GITHUB_ENV -Value "REFLEX_SWIFT_ROOT=$env:LOCALAPPDATA\Programs\Swift"
+          Add-Content -Path $env:GITHUB_ENV -Value "SDKROOT=$platformSdk"
           $env:PATH = "$swiftBin;$env:PATH"
+          $env:SDKROOT = $platformSdk
+          Write-Host "Using Windows Swift SDK: $env:SDKROOT"
           & (Join-Path $swiftBin 'swift.exe') --version
       - name: Build Windows release
         shell: pwsh
