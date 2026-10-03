@@ -47,12 +47,23 @@ jobs:
           if (-not (Test-Path (Join-Path $platformSdk 'usr\lib\swift\windows'))) {
             throw "Windows Swift standard libraries were not found in $platformSdk"
           }
+          $swiftRoot = Join-Path $env:LOCALAPPDATA 'Programs\Swift'
+          $runtimeRoot = Join-Path $swiftRoot 'Runtimes'
+          $runtimeBin = Get-ChildItem $runtimeRoot -Directory |
+            Sort-Object LastWriteTime -Descending | ForEach-Object {
+              Join-Path $_.FullName 'usr\bin'
+            } | Where-Object { Test-Path (Join-Path $_ 'swiftCore.dll') } |
+            Select-Object -First 1
+          if (-not $runtimeBin) { throw "Swift runtime DLLs were not found under $runtimeRoot" }
           $swiftBin = Join-Path $toolchain.FullName 'usr\bin'
           Add-Content -Path $env:GITHUB_PATH -Value $swiftBin
-          Add-Content -Path $env:GITHUB_ENV -Value "REFLEX_SWIFT_ROOT=$env:LOCALAPPDATA\Programs\Swift"
+          Add-Content -Path $env:GITHUB_PATH -Value $runtimeBin
+          Add-Content -Path $env:GITHUB_ENV -Value "REFLEX_SWIFT_ROOT=$swiftRoot"
+          Add-Content -Path $env:GITHUB_ENV -Value "REFLEX_SWIFT_RUNTIME_BIN=$runtimeBin"
           Add-Content -Path $env:GITHUB_ENV -Value "SDKROOT=$platformSdk"
-          $env:PATH = "$swiftBin;$env:PATH"
+          $env:PATH = "$swiftBin;$runtimeBin;$env:PATH"
           $env:SDKROOT = $platformSdk
+          Write-Host "Using Swift runtime DLLs: $runtimeBin"
           Write-Host "Using Windows Swift SDK: $env:SDKROOT"
           & (Join-Path $swiftBin 'swift.exe') --version
       - name: Build Windows release
@@ -89,10 +100,9 @@ jobs:
           $assetName = 'reflex-wm-windows-x86_64.zip'
           New-Item -ItemType Directory -Force -Path build\release | Out-Null
           Copy-Item $executable build\release\reflex-wm.exe
-          $swiftCore = Get-ChildItem $env:REFLEX_SWIFT_ROOT -Filter swiftCore.dll -Recurse -File |
-            Select-Object -First 1
-          if (-not $swiftCore) { throw 'Swift runtime DLLs were not found in the installed toolchain' }
-          Get-ChildItem $swiftCore.DirectoryName -Filter '*.dll' -File |
+          $swiftCore = Join-Path $env:REFLEX_SWIFT_RUNTIME_BIN 'swiftCore.dll'
+          if (-not (Test-Path $swiftCore)) { throw "Swift runtime DLL was not found: $swiftCore" }
+          Get-ChildItem $env:REFLEX_SWIFT_RUNTIME_BIN -Filter '*.dll' -File |
             Copy-Item -Destination build\release
           $env:PATH = ($env:PATH -split ';' | Where-Object { $_ -notlike "$env:REFLEX_SWIFT_ROOT*" }) -join ';'
           & build\release\reflex-wm.exe --help
