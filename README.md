@@ -138,6 +138,14 @@ The menu-bar item shows the current configuration status and provides commands t
 
 Build with `swift build -c release`; the executable is `.build/release/reflex-wm.exe`. Run it once to create `%USERPROFILE%\.config\reflex-wm.toml`, then edit the configuration and start the executable again. Run `reflex-wm.exe --check-config` to validate it without opening the tray app. The tray icon menu provides status, reload, open configuration, and quit commands. To run at sign-in, place a shortcut to `reflex-wm.exe` in the user's Startup folder (`shell:startup`).
 
+To launch it hidden, save this as a .vbs file, replacing the path with where you extracted reflex-wm.exe:
+```
+  Set shell = CreateObject("WScript.Shell")
+  shell.Run """C:\Tools\reflex-wm\reflex-wm.exe""", 0, False
+```
+
+Run the script to start reflex-wm without a visible command window. You can put a shortcut to the script in your Startup folder (shell:startup) to launch it at sign-in. Use the tray icon to reload the configuration or quit. For diagnostics, run reflex-wm.exe --check-config directly so you can see its output.
+
 Window and monitor actions use Win32 window geometry and monitor work areas. Window-manager restrictions or applications that reject external resize/focus requests can prevent an action. Notification messages appear through the reflex-wm tray icon.
 
 ### Linux - KDE
