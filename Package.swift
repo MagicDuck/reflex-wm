@@ -6,8 +6,12 @@ import PackageDescription
 // The override lets developers compile/test the D-Bus transport on macOS with libdbus installed.
 #if os(Linux)
   let buildKDE = true
+#elseif os(Windows)
+  let buildKDE = false
+  let buildWindows = true
 #else
   let buildKDE = ProcessInfo.processInfo.environment["REFLEX_BUILD_KDE"] == "1"
+  let buildWindows = false
 #endif
 
 // Portable behavior tests run on both macOS and Linux.
@@ -19,7 +23,15 @@ var targets: [Target] = [
 #if os(macOS)
   targets.append(.target(name: "ReflexWMMacSupport", dependencies: ["ReflexWMCore"]))
 #endif
-if buildKDE {
+if buildWindows {
+  targets.append(.target(
+    name: "CWindows", path: "Sources/CWindows", publicHeadersPath: "include",
+    linkerSettings: [
+      .linkedLibrary("user32"), .linkedLibrary("shell32"), .linkedLibrary("kernel32"),
+    ]))
+  targets.append(
+    .executableTarget(name: "ReflexWMWindows", dependencies: ["ReflexWMCore", "CWindows"]))
+} else if buildKDE {
   targets.append(
     .systemLibrary(
       name: "CDBus", pkgConfig: "dbus-1", providers: [.apt(["libdbus-1-dev"]), .brew(["dbus"])]))
@@ -48,8 +60,10 @@ let package = Package(
   products: [
     .library(name: "ReflexWMCore", targets: ["ReflexWMCore"]),
     .executable(
-      name: buildKDE ? "reflex-wm-kde" : "reflex-wm",
-      targets: [buildKDE ? "ReflexWMKDE" : "ReflexWM"]),
+      name: buildWindows ? "reflex-wm" : (buildKDE ? "reflex-wm-kde" : "reflex-wm"),
+      targets: [
+        buildWindows ? "ReflexWMWindows" : (buildKDE ? "ReflexWMKDE" : "ReflexWM"),
+      ]),
   ],
   dependencies: [.package(url: "https://github.com/mattt/swift-toml.git", from: "2.0.0")],
   targets: targets
