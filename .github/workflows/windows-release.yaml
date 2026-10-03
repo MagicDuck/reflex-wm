@@ -25,9 +25,15 @@ jobs:
       - name: Install Swift
         shell: pwsh
         run: |
-          winget install --id Swift.Toolchain --exact --source winget `
-            --accept-package-agreements --accept-source-agreements
-          if ($LASTEXITCODE -ne 0) { throw "Swift toolchain installation failed ($LASTEXITCODE)" }
+          $swiftVersion = '6.4.0'
+          $installerUrl = "https://download.swift.org/swift-$swiftVersion-release/windows10/swift-$swiftVersion-RELEASE/swift-$swiftVersion-RELEASE-windows10.exe"
+          $installerPath = Join-Path $env:RUNNER_TEMP "swift-$swiftVersion-installer.exe"
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+          $installation = Start-Process -FilePath $installerPath `
+            -ArgumentList @('/quiet', '/norestart') -Wait -PassThru
+          if ($installation.ExitCode -ne 0) {
+            throw "Swift toolchain installation failed ($($installation.ExitCode))"
+          }
           $toolchains = Join-Path $env:LOCALAPPDATA 'Programs\Swift\Toolchains'
           $toolchain = Get-ChildItem $toolchains -Directory |
             Sort-Object LastWriteTime -Descending | Select-Object -First 1
