@@ -19,12 +19,14 @@ final class KDEApplication {
   private let actions: ActionController
   private let watcher: ConfigurationWatcher
   private let configURL: URL
+  private let debugShortcuts: Bool
   private var shortcuts: [String: ValidatedShortcut] = [:]
   private var recoveryAt: Date?
   private var shortcutOwner: String?
 
-  init(configURL: URL) throws {
+  init(configURL: URL, debugShortcuts: Bool = false) throws {
     self.configURL = configURL
+    self.debugShortcuts = debugShortcuts
     bus = try DBusConnection()
     try bus.ownName(WindowBridge.service)
     service = GlobalShortcuts(bus: bus)
@@ -70,6 +72,18 @@ final class KDEApplication {
       }
       try registry.apply(candidate)
       shortcuts = mapping
+      if debugShortcuts {
+        for item in candidate {
+          notifier.log(
+            "\(item.id) \(item.description): requested Qt keys \(Self.keyCodes(item.keys))")
+          do {
+            notifier.log(
+              "\(item.id): active Qt keys \(Self.keyCodes(try service.keys(for: item.id)))")
+          } catch {
+            notifier.log("\(item.id): could not read active keys: \(error.localizedDescription)")
+          }
+        }
+      }
       if configuration.remap?.capsLock != nil {
         notifier.warning("Caps Lock remapping is ignored on KDE")
       }
@@ -149,6 +163,7 @@ final class KDEApplication {
         // One action per press; repeats/releases are consumed by KDE but do not
         // repeatedly toggle applications or close additional windows.
         if member == "globalShortcutPressed", let shortcut = shortcuts[id] {
+          if debugShortcuts { notifier.log("\(id): globalShortcutPressed") }
           actions.perform(shortcut)
         }
       } else if sender == shortcutOwner, interface == GlobalShortcuts.interface,
@@ -158,22 +173,28 @@ final class KDEApplication {
       {
         // Query current state so queued intermediate notifications from our own
         // reload cannot overwrite a newer binding selected in KDE Settings.
-        registry.recordChange(id: id, keys: try service.keys(for: id))
+        let keys = try service.keys(for: id)
+        registry.recordChange(id: id, keys: keys)
+        if debugShortcuts { notifier.log("\(id): KDE changed Qt keys to \(Self.keyCodes(keys))") }
       }
     } catch { notifier.log("D-Bus event failed: \(error.localizedDescription)") }
+  }
+  private static func keyCodes(_ keys: [Int32]) -> String {
+    keys.map { String(format: "0x%08X", UInt32(bitPattern: $0)) }.joined(separator: ", ")
   }
 }
 
 let arguments = Array(CommandLine.arguments.dropFirst())
 if arguments.contains("--help") {
   print(
-    "Usage: reflex-wm-kde [--config PATH] [--check-config]\nReload with SIGHUP; stop with SIGINT/SIGTERM. Requires Plasma 6 Wayland."
+    "Usage: reflex-wm-kde [--config PATH] [--check-config] [--debug-shortcuts]\nReload with SIGHUP; stop with SIGINT/SIGTERM. Requires Plasma 6 Wayland."
   )
 } else {
   do {
     var config = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(
       ".config/reflex-wm.toml")
     var check = false
+    var debugShortcuts = false
     var index = 0
     while index < arguments.count {
       switch arguments[index] {
@@ -182,6 +203,7 @@ if arguments.contains("--help") {
         guard index < arguments.count else { throw ValidationError("--config requires a path") }
         config = URL(fileURLWithPath: arguments[index]).standardizedFileURL
       case "--check-config": check = true
+      case "--debug-shortcuts": debugShortcuts = true
       default: throw ValidationError("unknown argument: \(arguments[index])")
       }
       index += 1
@@ -206,7 +228,7 @@ if arguments.contains("--help") {
         throw ValidationError("reflex-wm's KDE backend requires a Plasma 6 Wayland session")
       }
       let signals = SignalMonitor()
-      try KDEApplication(configURL: config).run(signals: signals)
+      try KDEApplication(configURL: config, debugShortcuts: debugShortcuts).run(signals: signals)
     }
   } catch {
     FileHandle.standardError.write(Data("reflex-wm-kde: \(error.localizedDescription)\n".utf8))

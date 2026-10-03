@@ -28,6 +28,10 @@ registered using their resulting symbols, as KWin expects: for example,
 for letters and special keys. Keyboard layouts with different shifted symbols
 can differ from the ANSI mapping.
 
+Run `reflex-wm-kde --debug-shortcuts` to log requested and active Qt key codes,
+bindings changed in KDE Settings, and received shortcut activation events. This
+helps distinguish encoding differences from registration or key-capture failures.
+
 Use `notify-win-info` to discover the actual window application ID and desktop entry
 ID; these may differ. `app_id` matches KWin's `resourceClass` exactly (Wayland app
 ID or XWayland window class). `app_name` matches the desktop entry's `Name` or the
