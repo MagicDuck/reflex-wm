@@ -63,7 +63,9 @@ Item {
         function onWindowRemoved(window) { Windows.removeWindow(window) }
     }
     Component.onCompleted: {
-        Windows.initialize(Workspace, function(x, y, width, height) { return Qt.rect(x, y, width, height) }, Workspace.MaximizeArea)
+        Windows.initialize(Workspace,
+            function(x, y, width, height) { return Qt.rect(x, y, width, height) },
+            Workspace.MaximizeArea, function(callback) { Qt.callLater(callback) })
         next.call()
     }
 }
