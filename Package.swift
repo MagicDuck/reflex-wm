@@ -6,11 +6,12 @@ import PackageDescription
 // The override lets developers compile/test the D-Bus transport on macOS with libdbus installed.
 #if os(Linux)
   let buildKDE = true
-#elseif os(Windows)
-  let buildKDE = false
-  let buildWindows = true
 #else
   let buildKDE = ProcessInfo.processInfo.environment["REFLEX_BUILD_KDE"] == "1"
+#endif
+#if os(Windows)
+  let buildWindows = true
+#else
   let buildWindows = false
 #endif
 
