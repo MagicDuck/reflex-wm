@@ -16,7 +16,8 @@ function win(id, pid = 1) {
 const a = win('a'), b = win('b'), c = win('c', 2), panel = {...win('panel'), specialWindow: true};
 const workspace = {stackingOrder: [a,b,c,panel], activeWindow: a, screens: outputs,
   currentDesktop: desktop, currentActivity: 'default', MaximizeArea: 2,
-  clientArea: (_, output) => output.geometry, raiseWindow() {}, sendClientToScreen(w, output) { w.output = output; }};
+  clientArea: (_, output) => output.geometry, raiseWindow() {}, sendClientToScreen(w, output) { w.output = output; },
+  maximizeCalls: 0, slotWindowMaximize() { this.maximizeCalls++; this.activeWindow.nativeMaximized = !this.activeWindow.nativeMaximized; }};
 const deferred = [];
 const flushDeferred = () => { while (deferred.length) deferred.shift()(); };
 engine.initialize(workspace, rect, workspace.MaximizeArea, callback => deferred.push(callback));
@@ -30,8 +31,13 @@ engine.execute({action: 'toggle', window: 'a'}); assert.equal(workspace.activeWi
 engine.execute({action: 'focus-next-app-window'}); assert.equal(workspace.activeWindow, b);
 engine.execute({action: 'focus-next-app-window'}); assert.equal(workspace.activeWindow, a);
 const original = {...a.frameGeometry};
-engine.execute({action: 'toggle-maximize'}); assert.equal(a.frameGeometry.width, 1001);
-engine.execute({action: 'toggle-maximize'}); assert.deepEqual(a.frameGeometry, original);
+engine.execute({action: 'toggle-maximize'}); assert.equal(a.nativeMaximized, true);
+engine.execute({action: 'toggle-maximize'}); assert.equal(a.nativeMaximized, false);
+assert.equal(workspace.maximizeCalls, 2); assert.deepEqual(a.frameGeometry, original);
+// Honor a maximized state set outside reflex-wm, without rewriting the frame.
+a.nativeMaximized = true;
+engine.execute({action: 'toggle-maximize'}); assert.equal(a.nativeMaximized, false);
+assert.deepEqual(a.frameGeometry, original);
 engine.execute({action: 'toggle-vertical-split'}); assert.equal(a.frameGeometry.width, 500);
 engine.execute({action: 'toggle-vertical-split'}); assert.equal(a.frameGeometry.x, 500); assert.equal(a.frameGeometry.width, 501);
 engine.execute({action: 'move-to-next-screen'}); assert.equal(a.output, outputs[1]);
@@ -53,6 +59,13 @@ engine.execute({action: 'move-to-next-screen'});
 engine.execute({action: 'toggle-vertical-split'});
 const newerFrame = {...a.frameGeometry};
 flushDeferred(); assert.deepEqual(a.frameGeometry, newerFrame);
+// Native maximization cancels a pending screen resize as well.
+engine.execute({action: 'move-to-next-screen'});
+engine.execute({action: 'toggle-maximize'});
+a.frameGeometry = rect(0, 0, 1001, 800);
+flushDeferred(); assert.deepEqual(a.frameGeometry, rect(0, 0, 1001, 800));
+assert.equal(a.nativeMaximized, true);
+engine.execute({action: 'toggle-maximize'});
 // A rapid second move supersedes the first deferred resize.
 engine.execute({action: 'move-to-next-screen'});
 engine.execute({action: 'move-to-next-screen'});
@@ -61,7 +74,7 @@ deferred.shift()(); assert.deepEqual(a.frameGeometry, latestMove);
 flushDeferred(); assert.deepEqual(a.frameGeometry, latestMove);
 // Do not resize after an external screen move or window removal.
 engine.execute({action: 'move-to-next-screen'});
-a.output = outputs[1];
+a.output = outputs.find(output => output !== a.output);
 a.frameGeometry = rect(1200, 40, 700, 500);
 const externalFrame = {...a.frameGeometry};
 flushDeferred(); assert.deepEqual(a.frameGeometry, externalFrame);

@@ -5,7 +5,6 @@ var maximizeArea
 var callLater
 var pendingScreenMoves = {}
 var history = []
-var restoreFrames = {}
 var appOrder = {}
 var splitLeft = true
 
@@ -16,7 +15,6 @@ function initialize(ws, rect, areaKind, defer) {
     callLater = defer
     pendingScreenMoves = {}
     history = []
-    restoreFrames = {}
     appOrder = {}
     splitLeft = true
     var windows = eligible()
@@ -41,7 +39,6 @@ function recordFocus(window) {
 function removeWindow(window) {
     var key = id(window)
     history = history.filter(function(value) { return value !== key })
-    delete restoreFrames[key]
     delete pendingScreenMoves[key]
     Object.keys(appOrder).forEach(function(app) {
         appOrder[app] = appOrder[app].filter(function(value) { return value !== key })
@@ -125,22 +122,14 @@ function execute(command) {
         window.closeWindow()
         break
     case "toggle-maximize":
-        if (restoreFrames[key]) {
-            var saved = restoreFrames[key]
-            setFrame(window, saved)
-            delete restoreFrames[key]
-        } else {
-            var original = rectCopy(window.frameGeometry)
-            setFrame(window, area(window))
-            restoreFrames[key] = original
-        }
+        delete pendingScreenMoves[key]
+        workspace.slotWindowMaximize()
         break
     case "toggle-vertical-split":
         var bounds = area(window)
         var leftWidth = Math.floor(bounds.width / 2)
         setFrame(window, { x: bounds.x + (splitLeft ? 0 : leftWidth), y: bounds.y,
             width: splitLeft ? leftWidth : bounds.width - leftWidth, height: bounds.height })
-        delete restoreFrames[key]
         splitLeft = !splitLeft
         break
     case "move-to-next-screen":
@@ -175,7 +164,6 @@ function execute(command) {
             try { setFrame(window, pending.frame) }
             catch (error) { console.log("reflex-wm: could not finish screen resize: " + error) }
         })
-        delete restoreFrames[key]
         break
     case "focus-next-app-window":
         var app = appKey(window)
