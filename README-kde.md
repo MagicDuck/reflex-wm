@@ -22,6 +22,9 @@ reported by `swift build -c release --show-bin-path`.
 
 ## Configuration
 
+`toggle-maximize` invokes KWin's native maximize/restore action. KWin manages the
+maximized state and restore geometry, including windows maximized through KDE.
+
 `hyper` expands to Meta+Ctrl+Alt+Shift. Shifted ANSI punctuation and digits are
 registered using their resulting symbols, as KWin expects: for example,
 `hyper + '` uses the double-quote symbol with Meta+Ctrl+Alt. Shift remains explicit
