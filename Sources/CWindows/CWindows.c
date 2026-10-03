@@ -23,20 +23,32 @@ static wchar_t app_tooltip[128] = L"reflex-wm";
 static wchar_t app_status[128] = L"Starting...";
 
 static wchar_t *to_wide(const char *value) {
-  if (!value) return NULL;
+  if (!value) {
+    return NULL;
+  }
   int count = MultiByteToWideChar(CP_UTF8, 0, value, -1, NULL, 0);
-  if (!count) return NULL;
+  if (!count) {
+    return NULL;
+  }
   wchar_t *result = (wchar_t *)calloc((size_t)count, sizeof(wchar_t));
-  if (result) MultiByteToWideChar(CP_UTF8, 0, value, -1, result, count);
+  if (result) {
+    MultiByteToWideChar(CP_UTF8, 0, value, -1, result, count);
+  }
   return result;
 }
 
 static char *to_utf8(const wchar_t *value) {
-  if (!value) return _strdup("");
+  if (!value) {
+    return _strdup("");
+  }
   int count = WideCharToMultiByte(CP_UTF8, 0, value, -1, NULL, 0, NULL, NULL);
-  if (!count) return _strdup("");
+  if (!count) {
+    return _strdup("");
+  }
   char *result = (char *)calloc((size_t)count, 1);
-  if (result) WideCharToMultiByte(CP_UTF8, 0, value, -1, result, count, NULL, NULL);
+  if (result) {
+    WideCharToMultiByte(CP_UTF8, 0, value, -1, result, count, NULL, NULL);
+  }
   return result;
 }
 
@@ -96,7 +108,9 @@ int rw_app_start(const char *tooltip) {
   RegisterClassW(&cls);
   app_window = CreateWindowExW(0, class_name, L"reflex-wm", 0, 0, 0, 0, 0,
                                HWND_MESSAGE, NULL, app_instance, NULL);
-  if (!app_window) return 0;
+  if (!app_window) {
+    return 0;
+  }
   memset(&tray_icon, 0, sizeof(tray_icon));
   tray_icon.cbSize = sizeof(tray_icon);
   tray_icon.hWnd = app_window;
@@ -115,7 +129,9 @@ int rw_app_start(const char *tooltip) {
 
 RWEvent rw_app_poll(int timeout_ms) {
   RWEvent event = {0, 0};
-  if (!app_window) return event;
+  if (!app_window) {
+    return event;
+  }
   DWORD until = GetTickCount() + (DWORD)(timeout_ms < 0 ? 0 : timeout_ms);
   MSG message;
   do {
@@ -141,9 +157,12 @@ RWEvent rw_app_poll(int timeout_ms) {
             event.kind = 4;
             break;
         }
-        if (event.kind) return event;
+        if (event.kind) {
+          return event;
+        }
       }
-      TranslateMessage(&message); DispatchMessageW(&message);
+      TranslateMessage(&message);
+      DispatchMessageW(&message);
     }
     if (timeout_ms == 0 || GetTickCount() >= until) break;
     MsgWaitForMultipleObjects(0, NULL, FALSE, 20, QS_ALLINPUT);
@@ -161,7 +180,9 @@ void rw_app_stop(void) {
 
 void rw_app_status(const char *text) {
   wchar_t *wide = to_wide(text);
-  if (!wide) return;
+  if (!wide) {
+    return;
+  }
   wcsncpy_s(app_status, ARRAYSIZE(app_status), wide, _TRUNCATE);
   wcsncpy_s(tray_icon.szTip, ARRAYSIZE(tray_icon.szTip), wide, _TRUNCATE);
   tray_icon.uFlags = NIF_TIP;
@@ -196,68 +217,326 @@ void rw_open_path(const char *path) {
 }
 
 int rw_key_code(const char *name) {
-  if (!name) return 0;
-  if (strlen(name)==1) {
-    char c=(char)toupper((unsigned char)name[0]);
-    if ((c>='A'&&c<='Z')||(c>='0'&&c<='9')) return (int)c;
-    const char *punct="`-=[]\\;'.,/"; const int codes[]={0xC0,0xBD,0xBB,0xDB,0xDD,0xDC,0xDE,0xBC,0xBE,0xBF};
-    const char *p=strchr(punct,name[0]); if(p) return codes[p-punct];
+  if (!name) {
+    return 0;
   }
-  if (name[0]=='f' && name[1]) { int n=atoi(name+1); if(n>=1&&n<=20) return VK_F1+n-1; }
-  struct Pair { const char *n; int code; } pairs[]={
-    {"return",VK_RETURN},{"tab",VK_TAB},{"space",VK_SPACE},{"escape",VK_ESCAPE},{"delete",VK_DELETE},
-    {"home",VK_HOME},{"end",VK_END},{"pageup",VK_PRIOR},{"pagedown",VK_NEXT},
-    {"left",VK_LEFT},{"right",VK_RIGHT},{"up",VK_UP},{"down",VK_DOWN},{"printscr",VK_SNAPSHOT},{NULL,0}};
-  for(int i=0;pairs[i].n;i++) if(_stricmp(name,pairs[i].n)==0) return pairs[i].code;
+  if (strlen(name) == 1) {
+    char c = (char)toupper((unsigned char)name[0]);
+    if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+      return (int)c;
+    }
+
+    const char *punct = "`-=[]\\;'.,/";
+    const int codes[] = {0xC0, 0xBD, 0xBB, 0xDB, 0xDD, 0xDC, 0xDE, 0xBC, 0xBE, 0xBF};
+    const char *p = strchr(punct, name[0]);
+    if (p) {
+      return codes[p - punct];
+    }
+  }
+
+  if (name[0] == 'f' && name[1]) {
+    int n = atoi(name + 1);
+    if (n >= 1 && n <= 20) {
+      return VK_F1 + n - 1;
+    }
+  }
+
+  struct Pair {
+    const char *name;
+    int code;
+  } pairs[] = {
+      {"return", VK_RETURN}, {"tab", VK_TAB},       {"space", VK_SPACE},
+      {"escape", VK_ESCAPE}, {"delete", VK_DELETE}, {"home", VK_HOME},
+      {"end", VK_END},       {"pageup", VK_PRIOR},  {"pagedown", VK_NEXT},
+      {"left", VK_LEFT},     {"right", VK_RIGHT},   {"up", VK_UP},
+      {"down", VK_DOWN},     {"printscr", VK_SNAPSHOT},
+      {NULL, 0},
+  };
+  for (int i = 0; pairs[i].name; i++) {
+    if (_stricmp(name, pairs[i].name) == 0) {
+      return pairs[i].code;
+    }
+  }
   return 0;
 }
-int rw_hotkey_register(int identifier,unsigned int modifiers,int key) { return RegisterHotKey(app_window,identifier,modifiers|MOD_NOREPEAT,(UINT)key)!=0; }
-void rw_hotkey_unregister(int identifier) { UnregisterHotKey(app_window,identifier); }
-unsigned long rw_last_error(void) { return GetLastError(); }
+
+int rw_hotkey_register(int identifier, unsigned int modifiers, int key) {
+  return RegisterHotKey(app_window, identifier, modifiers | MOD_NOREPEAT, (UINT)key) != 0;
+}
+
+void rw_hotkey_unregister(int identifier) {
+  UnregisterHotKey(app_window, identifier);
+}
+
+unsigned long rw_last_error(void) {
+  return GetLastError();
+}
 
 static char *json_escape(const char *s) {
-  size_t n=3; for(const unsigned char *p=(const unsigned char*)s;*p;p++) n+=(*p=='"'||*p=='\\')?2:(*p<32?6:1);
-  char *o=(char*)malloc(n), *q=o; if(!o)return NULL; *q++='"';
-  for(const unsigned char *p=(const unsigned char*)s;*p;p++) { if(*p=='"'||*p=='\\'){*q++='\\';*q++=*p;} else if(*p<32){sprintf(q,"\\u%04x",*p);q+=6;}else *q++=*p; }
-  *q++='"'; *q=0; return o;
+  size_t n = 3;
+  for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+    n += (*p == '"' || *p == '\\') ? 2 : (*p < 32 ? 6 : 1);
+  }
+
+  char *o = (char *)malloc(n);
+  char *q = o;
+  if (!o) {
+    return NULL;
+  }
+  *q++ = '"';
+
+  for (const unsigned char *p = (const unsigned char *)s; *p; p++) {
+    if (*p == '"' || *p == '\\') {
+      *q++ = '\\';
+      *q++ = *p;
+    } else if (*p < 32) {
+      sprintf(q, "\\u%04x", *p);
+      q += 6;
+    } else {
+      *q++ = *p;
+    }
+  }
+
+  *q++ = '"';
+  *q = 0;
+  return o;
 }
-typedef struct Snap { char *data; size_t length,capacity; int first; char focused[32]; } Snap;
+typedef struct Snap {
+  char *data;
+  size_t length;
+  size_t capacity;
+  int first;
+  char focused[32];
+} Snap;
+
 static BOOL CALLBACK add_window(HWND hwnd, LPARAM arg) {
-  Snap *s=(Snap*)arg; if(!IsWindowVisible(hwnd)||GetWindow(hwnd,GW_OWNER)) return TRUE;
-  DWORD pid=0; GetWindowThreadProcessId(hwnd,&pid); if(!pid||pid==GetCurrentProcessId()) return TRUE;
-  wchar_t title_w[1024]={0},path_w[32768]={0}; GetWindowTextW(hwnd,title_w,1024);
-  HANDLE process=OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION,FALSE,pid);
-  if(process) { DWORD size=32768; QueryFullProcessImageNameW(process,0,path_w,&size); CloseHandle(process); }
-  if(!path_w[0]) return TRUE;
-  char *title=to_utf8(title_w),*path=to_utf8(path_w); wchar_t *base=wcsrchr(path_w,L'\\'); char *exe=to_utf8(base?base+1:path_w);
-  char *qt=json_escape(title),*qp=json_escape(path),*qe=json_escape(exe); if(!qt||!qp||!qe){free(title);free(path);free(exe);free(qt);free(qp);free(qe);return TRUE;}
-  char id[32]; snprintf(id,sizeof(id),"%llu",(unsigned long long)(uintptr_t)hwnd);
-  char item[150000]; snprintf(item,sizeof(item),"%s{\"id\":\"%s\",\"title\":%s,\"appID\":%s,\"appName\":%s,\"executableName\":%s,\"pid\":%lu}",s->first?"":",",id,qt,qp,qe,qe,(unsigned long)pid);
-  size_t need=strlen(item); if(s->length+need+1>s->capacity){size_t cap=s->capacity? s->capacity*2:4096;while(cap<s->length+need+1)cap*=2;char *p=(char*)realloc(s->data,cap);if(!p)goto done;s->data=p;s->capacity=cap;}
-  memcpy(s->data+s->length,item,need);s->length+=need;s->data[s->length]=0;s->first=0;
-  if(hwnd==GetForegroundWindow()) strncpy_s(s->focused,sizeof(s->focused),id,_TRUNCATE);
-done: free(title);free(path);free(exe);free(qt);free(qp);free(qe);return TRUE;
+  Snap *s = (Snap *)arg;
+  if (!IsWindowVisible(hwnd) || GetWindow(hwnd, GW_OWNER)) {
+    return TRUE;
+  }
+
+  DWORD pid = 0;
+  GetWindowThreadProcessId(hwnd, &pid);
+  if (!pid || pid == GetCurrentProcessId()) {
+    return TRUE;
+  }
+
+  wchar_t title_w[1024] = {0};
+  wchar_t path_w[32768] = {0};
+  GetWindowTextW(hwnd, title_w, 1024);
+  HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+  if (process) {
+    DWORD size = 32768;
+    QueryFullProcessImageNameW(process, 0, path_w, &size);
+    CloseHandle(process);
+  }
+  if (!path_w[0]) {
+    return TRUE;
+  }
+  char *title = to_utf8(title_w);
+  char *path = to_utf8(path_w);
+  wchar_t *base = wcsrchr(path_w, L'\\');
+  char *exe = to_utf8(base ? base + 1 : path_w);
+  char *qt = json_escape(title);
+  char *qp = json_escape(path);
+  char *qe = json_escape(exe);
+  if (!qt || !qp || !qe) {
+    free(title);
+    free(path);
+    free(exe);
+    free(qt);
+    free(qp);
+    free(qe);
+    return TRUE;
+  }
+
+  char id[32];
+  snprintf(id, sizeof(id), "%llu", (unsigned long long)(uintptr_t)hwnd);
+  char item[150000];
+  snprintf(item, sizeof(item),
+           "%s{\"id\":\"%s\",\"title\":%s,\"appID\":%s,\"appName\":%s,\"executableName\":%s,\"pid\":%lu}",
+           s->first ? "" : ",", id, qt, qp, qe, qe, (unsigned long)pid);
+
+  size_t need = strlen(item);
+  if (s->length + need + 1 > s->capacity) {
+    size_t cap = s->capacity ? s->capacity * 2 : 4096;
+    while (cap < s->length + need + 1) cap *= 2;
+    char *p = (char *)realloc(s->data, cap);
+    if (!p) goto done;
+    s->data = p;
+    s->capacity = cap;
+  }
+
+  memcpy(s->data + s->length, item, need);
+  s->length += need;
+  s->data[s->length] = 0;
+  s->first = 0;
+  if (hwnd == GetForegroundWindow()) {
+    strncpy_s(s->focused, sizeof(s->focused), id, _TRUNCATE);
+  }
+
+done:
+  free(title);
+  free(path);
+  free(exe);
+  free(qt);
+  free(qp);
+  free(qe);
+  return TRUE;
 }
 char *rw_snapshot_json(void) {
-  Snap s={0};s.first=1;EnumWindows(add_window,(LPARAM)&s);if(!s.data){s.data=(char*)calloc(1,1);}
-  size_t total=s.length+128;char *result=(char*)malloc(total);if(!result){free(s.data);return NULL;}
+  Snap s = {0};
+  s.first = 1;
+  EnumWindows(add_window, (LPARAM)&s);
+  if (!s.data) {
+    s.data = (char *)calloc(1, 1);
+  }
+
+  size_t total = s.length + 128;
+  char *result = (char *)malloc(total);
+  if (!result) {
+    free(s.data);
+    return NULL;
+  }
+
   char focused[64];
-  if(s.focused[0]) snprintf(focused,sizeof(focused),"\"%s\"",s.focused);
-  else strcpy(focused,"null");
-  snprintf(result,total,"{\"focused\":%s,\"windows\":[%s]}",focused,s.data?s.data:"");
-  free(s.data);return result;
+  if (s.focused[0]) {
+    snprintf(focused, sizeof(focused), "\"%s\"", s.focused);
+  } else {
+    strcpy(focused, "null");
+  }
+
+  snprintf(result, total, "{\"focused\":%s,\"windows\":[%s]}", focused,
+           s.data ? s.data : "");
+  free(s.data);
+  return result;
 }
-void rw_free(void *memory){free(memory);}
-static HWND window_from_id(const char *id){return (HWND)(uintptr_t)_strtoui64(id?id:"0",NULL,10);}
-int rw_window_rect(const char *id,int*x,int*y,int*w,int*h){RECT r;if(!GetWindowRect(window_from_id(id),&r))return 0;*x=r.left;*y=r.top;*w=r.right-r.left;*h=r.bottom-r.top;return 1;}
-int rw_window_focus(const char *id){HWND h=window_from_id(id);if(!IsWindow(h))return 0;ShowWindow(h,SW_RESTORE);BringWindowToTop(h);return SetForegroundWindow(h)!=0;}
-int rw_window_close(const char *id){HWND h=window_from_id(id);return IsWindow(h)&&PostMessageW(h,WM_CLOSE,0,0);}
-int rw_window_set_rect(const char *id,int x,int y,int w,int h){return SetWindowPos(window_from_id(id),NULL,x,y,w,h,SWP_NOZORDER|SWP_NOACTIVATE|SWP_SHOWWINDOW)!=0;}
-int rw_window_minimize(const char *id){HWND h=window_from_id(id);return IsWindow(h)&&ShowWindow(h,SW_MINIMIZE);}
-typedef struct Monitors { RECT rects[64]; int count; } Monitors;
-static BOOL CALLBACK add_monitor(HMONITOR m,HDC dc,LPRECT r,LPARAM arg){Monitors*s=(Monitors*)arg;if(s->count<64){MONITORINFO i={.cbSize=sizeof(i)};if(GetMonitorInfoW(m,&i))s->rects[s->count++]=i.rcWork;}return TRUE;}
-static void monitors(Monitors*s){memset(s,0,sizeof(*s));EnumDisplayMonitors(NULL,NULL,add_monitor,(LPARAM)s);for(int i=0;i<s->count;i++)for(int j=i+1;j<s->count;j++)if(s->rects[j].left<s->rects[i].left||(s->rects[j].left==s->rects[i].left&&s->rects[j].top<s->rects[i].top)){RECT t=s->rects[i];s->rects[i]=s->rects[j];s->rects[j]=t;}}
-int rw_monitor_count(void){Monitors s;monitors(&s);return s.count;}
-int rw_monitor_rect(int index,int*x,int*y,int*w,int*h){Monitors s;monitors(&s);if(index<0||index>=s.count)return 0;RECT r=s.rects[index];*x=r.left;*y=r.top;*w=r.right-r.left;*h=r.bottom-r.top;return 1;}
-int rw_launch_command(const char *line){wchar_t *w=to_wide(line);if(!w)return 0;STARTUPINFOW si={.cb=sizeof(si)};PROCESS_INFORMATION pi={0};BOOL ok=CreateProcessW(NULL,w,NULL,NULL,FALSE,CREATE_UNICODE_ENVIRONMENT,NULL,NULL,&si,&pi);if(ok){CloseHandle(pi.hThread);CloseHandle(pi.hProcess);}free(w);return ok!=0;}
-int rw_launch_app(const char *application){wchar_t*w=to_wide(application);if(!w)return 0;HINSTANCE result=ShellExecuteW(NULL,L"open",w,NULL,NULL,SW_SHOWNORMAL);free(w);return (INT_PTR)result>32;}
+
+void rw_free(void *memory) {
+  free(memory);
+}
+
+static HWND window_from_id(const char *id) {
+  return (HWND)(uintptr_t)_strtoui64(id ? id : "0", NULL, 10);
+}
+
+int rw_window_rect(const char *id, int *x, int *y, int *w, int *h) {
+  RECT rect;
+  if (!GetWindowRect(window_from_id(id), &rect)) {
+    return 0;
+  }
+  *x = rect.left;
+  *y = rect.top;
+  *w = rect.right - rect.left;
+  *h = rect.bottom - rect.top;
+  return 1;
+}
+
+int rw_window_focus(const char *id) {
+  HWND hwnd = window_from_id(id);
+  if (!IsWindow(hwnd)) {
+    return 0;
+  }
+  ShowWindow(hwnd, SW_RESTORE);
+  BringWindowToTop(hwnd);
+  return SetForegroundWindow(hwnd) != 0;
+}
+
+int rw_window_close(const char *id) {
+  HWND hwnd = window_from_id(id);
+  return IsWindow(hwnd) && PostMessageW(hwnd, WM_CLOSE, 0, 0);
+}
+
+int rw_window_set_rect(const char *id, int x, int y, int w, int h) {
+  return SetWindowPos(window_from_id(id), NULL, x, y, w, h,
+                      SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW) != 0;
+}
+
+int rw_window_minimize(const char *id) {
+  HWND hwnd = window_from_id(id);
+  return IsWindow(hwnd) && ShowWindow(hwnd, SW_MINIMIZE);
+}
+
+typedef struct Monitors {
+  RECT rects[64];
+  int count;
+} Monitors;
+
+static BOOL CALLBACK add_monitor(HMONITOR monitor, HDC dc, LPRECT rect, LPARAM arg) {
+  Monitors *monitors = (Monitors *)arg;
+  if (monitors->count < 64) {
+    MONITORINFO info = {.cbSize = sizeof(info)};
+    if (GetMonitorInfoW(monitor, &info)) {
+      monitors->rects[monitors->count++] = info.rcWork;
+    }
+  }
+  return TRUE;
+}
+
+static void monitors_sort(Monitors *monitors) {
+  memset(monitors, 0, sizeof(*monitors));
+  EnumDisplayMonitors(NULL, NULL, add_monitor, (LPARAM)monitors);
+  for (int i = 0; i < monitors->count; i++) {
+    for (int j = i + 1; j < monitors->count; j++) {
+      RECT *left = &monitors->rects[i];
+      RECT *right = &monitors->rects[j];
+      if (right->left < left->left || (right->left == left->left && right->top < left->top)) {
+        RECT temp = *left;
+        *left = *right;
+        *right = temp;
+      }
+    }
+  }
+}
+
+int rw_monitor_count(void) {
+  Monitors monitors;
+  monitors_sort(&monitors);
+  return monitors.count;
+}
+
+int rw_monitor_rect(int index, int *x, int *y, int *w, int *h) {
+  Monitors monitors;
+  monitors_sort(&monitors);
+  if (index < 0 || index >= monitors.count) {
+    return 0;
+  }
+
+  RECT rect = monitors.rects[index];
+  *x = rect.left;
+  *y = rect.top;
+  *w = rect.right - rect.left;
+  *h = rect.bottom - rect.top;
+  return 1;
+}
+
+int rw_launch_command(const char *line) {
+  wchar_t *command_line = to_wide(line);
+  if (!command_line) {
+    return 0;
+  }
+
+  STARTUPINFOW startup_info = {.cb = sizeof(startup_info)};
+  PROCESS_INFORMATION process_info = {0};
+  BOOL success = CreateProcessW(NULL, command_line, NULL, NULL, FALSE,
+                                CREATE_UNICODE_ENVIRONMENT, NULL, NULL,
+                                &startup_info, &process_info);
+  if (success) {
+    CloseHandle(process_info.hThread);
+    CloseHandle(process_info.hProcess);
+  }
+  free(command_line);
+  return success != 0;
+}
+
+int rw_launch_app(const char *application) {
+  wchar_t *wide_application = to_wide(application);
+  if (!wide_application) {
+    return 0;
+  }
+
+  HINSTANCE result = ShellExecuteW(NULL, L"open", wide_application, NULL, NULL,
+                                   SW_SHOWNORMAL);
+  free(wide_application);
+  return (INT_PTR)result > 32;
+}
