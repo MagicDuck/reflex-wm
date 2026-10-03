@@ -169,10 +169,10 @@ done: free(title);free(path);free(exe);free(qt);free(qp);free(qe);return TRUE;
 char *rw_snapshot_json(void) {
   Snap s={0};s.first=1;EnumWindows(add_window,(LPARAM)&s);if(!s.data){s.data=(char*)calloc(1,1);}
   size_t total=s.length+128;char *result=(char*)malloc(total);if(!result){free(s.data);return NULL;}
-  snprintf(result,total,"{\"focused\":%s,\"windows\":[%s]}",s.focused[0]?"\"\"": "null",s.data?s.data:"");
-  if(s.focused[0]) { /* Replace the empty focused placeholder with the numeric handle string. */
-    char *p=strstr(result,"\"focused\":\"\""); if(p){char replacement[64];snprintf(replacement,sizeof(replacement),"\"focused\":\"%s\"",s.focused);memmove(p+strlen(replacement),p+strlen("\"focused\":\"\""),strlen(p+strlen("\"focused\":\"\"))+1);memcpy(p,replacement,strlen(replacement));}
-  }
+  char focused[64];
+  if(s.focused[0]) snprintf(focused,sizeof(focused),"\"%s\"",s.focused);
+  else strcpy(focused,"null");
+  snprintf(result,total,"{\"focused\":%s,\"windows\":[%s]}",focused,s.data?s.data:"");
   free(s.data);return result;
 }
 void rw_free(void *memory){free(memory);}
